@@ -1,12 +1,12 @@
 ---
 {
-  "title": "Optimizing mem.eql in Zig",
+  "title": "Index",
   "date": "2024-02-06T11:37:00",
   "author": "David Rubin",
   "draft": false,
-  "layout": "blog/page.html",
+  "layout": "blog/index.html",
   "tags": [ "simd", "optimizing", "zig" ]
 }  
 --- 
-# Something
-something here also
+# List of Blogs
+[Blog 1](1/)

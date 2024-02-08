@@ -1,0 +1,34 @@
+/* Global CSS */
+
+@import url('https://fonts.googleapis.com/css?family=JetBrains%20Mono');
+
+/* Links */
+a:link {
+	text-decoration: none;
+	font-weight: bold;
+	color: #fefefe;
+	font-family: 'JetBrains Mono', monospace;
+}
+
+a:visited {
+	text-decoration: none;
+	font-weight: bold;
+	color: #FEFEFE
+}
+
+a:hover,
+a:active {
+	font-weight: bold;
+	color: #FEFEFE;
+	text-decoration: underline
+}
+
+a.current {
+	color: #FFF600
+}
+
+* {
+	margin: auto;
+	padding: 0px
+}
+

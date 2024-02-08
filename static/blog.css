@@ -1,13 +1,39 @@
+@import url('global.css');
+
 nav {
-	font-weight: bold;
+	text-align: center;
+	font-size: 20px;
+	padding: 10px;
 }
 
-nav a {
-  color: white;
-	text-decoration: none;
+body {
+	color: #FEFEFE;
+	background-color: #0c0d10;
+	margin: auto;
+	padding: 0px;
+	font-size: 12px;
 }
 
+#content {
+	font-size: 14px;
+	font-family: 'JetBrains Mono', monospace;
 
-nav a:hover {
-	text-decoration: underline;
+	margin-top: 15%;
+
+	margin-left: 20%;
+	margin-right: 20%;
+
+	margin-bottom: 0;
+	padding-bottom: 0;
+
+	text-align: left;
+}
+
+/* Code Blocks */
+pre {
+	background-color: #1e1f26;
+	border: 1px solid #2e2f37;
+	border-radius: 5px;
+	padding: 10px;
+	overflow-x: auto;
 }

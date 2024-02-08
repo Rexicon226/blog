@@ -8,4 +8,4 @@
   "tags": []
 }  
 --- 
-# Welcome
+[Blogs](blogs/)
