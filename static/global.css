@@ -1,5 +1,6 @@
 /* Global CSS */
 
+/* Fonts */
 @import url('https://fonts.googleapis.com/css?family=JetBrains%20Mono');
 
 /* Links */
@@ -32,3 +33,49 @@ a.current {
 	padding: 0px
 }
 
+
+
+/* Zig highlighting */
+pre {
+	background-color: #1e1f26;
+	border: 1px solid #2e2f37;
+	border-radius: 5px;
+	padding: 10px;
+	overflow-x: auto;
+}
+
+code {
+	font-family: 'JetBrains Mono', monospace;
+	
+	/* All other tokens are colored below, this
+	is the color of comments */
+	color: #676e95;
+}
+
+.tok {
+	color: white
+}
+
+.tok-str {
+	color: #b8bb26
+}
+
+.tok-symbol {
+	color: #b16286
+}
+
+.tok-builtin {
+	color: #d65d0e
+}
+
+.tok-kw {
+	color: #fb4934
+}
+
+.tok-fn {
+	color: #12efef
+}
+
+.tok-type {
+	color: #e3cd0e
+}
