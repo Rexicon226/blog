@@ -7,20 +7,20 @@
 a:link {
 	text-decoration: none;
 	font-weight: bold;
-	color: #73cf2d;
+	color: #46c9ea;
 	font-family: 'JetBrains Mono', monospace;
 }
 
 a:visited {
 	text-decoration: none;
 	font-weight: bold;
-	color: #FEFEFE
+	color: #46c9ea;
 }
 
 a:hover,
 a:active {
 	font-weight: bold;
-	color:#73cf2d;
+	color: #73cf2d;
 	text-decoration: underline
 }
 
@@ -87,4 +87,8 @@ footer {
     color: #fff;
     text-align: center;
     padding: 20px;
+}
+
+p {
+	font-size: 1.2em;
 }
