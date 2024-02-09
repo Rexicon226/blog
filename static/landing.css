@@ -1,0 +1,9 @@
+@import url('global.css');
+
+body {
+	color: #FEFEFE;
+	background-color: #0c0d10;
+	margin: auto;
+	padding: 0px;
+	font-size: 12px;
+}
