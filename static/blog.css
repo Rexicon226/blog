@@ -1,9 +1,14 @@
 @import url('global.css');
 
 nav {
-	text-align: center;
-	font-size: 20px;
-	padding: 10px;
+	/* Align all of the element to the left */
+	text-align: left;
+	font-size: 25px;
+	padding: 5px;
+}
+
+nav a {
+	padding-left: 20px;
 }
 
 body {
@@ -12,6 +17,7 @@ body {
 	margin: auto;
 	padding: 0px;
 	font-size: 12px;
+	height: 100%;
 }
 
 #content {

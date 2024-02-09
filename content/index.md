@@ -1,10 +1,10 @@
 ---
 {
-  "title": "Index",
+  "title": "Blog List",
   "date": "2024-02-06T11:37:00",
   "author": "David Rubin",
   "draft": false,
-  "layout": "blog/page.html",
+  "layout": "landing.html",
   "tags": [ "simd", "optimizing", "zig" ]
 }  
 --- 
@@ -14,4 +14,4 @@
 
 <br>
 
-## [Blog 1](1/)
+## [Applying SIMD in the Zig standard library](1/)
