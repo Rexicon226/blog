@@ -13,18 +13,17 @@ nav a {
 
 body {
 	color: #FEFEFE;
-	background-color: #0c0d10;
+	background-color: rgb(32, 32, 32);
 	margin: auto;
 	padding: 0px;
 	font-size: 12px;
-	height: 100%;
 }
 
 #content {
 	font-size: 14px;
 	font-family: 'JetBrains Mono', monospace;
 
-	margin-top: 15%;
+	margin-top: 10%;
 
 	margin-left: 20%;
 	margin-right: 20%;
