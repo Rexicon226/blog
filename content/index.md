@@ -16,10 +16,11 @@ order that's useful to someone.
 <br><br>
 In my CS (computer science) journey I've covered a wide range of disciplines, ranging from neural networks in Python
 (image defuzing using ground truth-ed data),
-to compiler development ([Zig](https://ziglang.org)), to web development (my main website),
+to compiler development ([Zig](https://ziglang.org)), to web development 
+([my main website](https://vortan.dev)),
 to game modding ([SpaceWarp](https://github.com/SpaceWarpDev/SpaceWarp)), and many other things.
 <br><br>
-As you can imagine I have a slight bias towards [Zig](https://ziglang.org), I think it's one
+As you can imagine I have a *slight* bias towards [Zig](https://ziglang.org), I think it's one
 of the greatest languages created in modern times, however I strongly believe that 
 there is always a "right" tool for the job, and you should use that tool, no
 matter what the people around you say.
@@ -28,13 +29,4 @@ What else... I'm sure I'll think of something else to add to this short autobiog
 For now, why not take a gander at some systematized thoughts arranged neatly in the proceeding
 blog posts!
 <br><br>
-(blog inspired by stupid conversation with my dad)
-
-<br>
-
-# List of Blogs
----
-
-<br>
-
-## [Applying SIMD in the Zig standard library](1/)
+\- blog inspired by conversation with my dad (was told to go write a blog about "it")

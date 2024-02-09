@@ -92,6 +92,8 @@ fn getDate(allocator: Allocator) ![]const u8 {
 
 const daysInMonth: [12]u8 = .{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
+const number_extra_dirs_in_content = 1;
+
 fn resolvePostIndex(data: *UserData) !void {
     // First we want to figure out what is the next index.
     // Probably easiest way is to run `ls content
@@ -107,8 +109,8 @@ fn resolvePostIndex(data: *UserData) !void {
         }
     }
 
-    // New post will be at index + 1
     index += 1;
+    index -= number_extra_dirs_in_content;
 
     // Resolved.
     data.lazy_index = index;
@@ -140,7 +142,7 @@ fn generateNewPost(data: UserData, allocator: Allocator) !void {
         \\  "date": "{s}",
         \\  "author": "{s}",
         \\  "draft": true,
-        \\  "layout": "blog/page.html",
+        \\  "layout": "page.html",
         \\  "tags": []
         \\}}
         \\---
@@ -154,32 +156,10 @@ fn generateNewPost(data: UserData, allocator: Allocator) !void {
         },
     );
 
+    std.debug.print("DONT FORGET TO UNDRAFT THE BLOG!!!\n", .{});
+
     try std.fs.makeDirAbsolute(post_dir);
     const index_file = try std.fs.createFileAbsolute(post_path, .{});
     try index_file.writeAll(index_content);
     index_file.close();
-
-    // Now we need to add this post to the index in content/index.md
-    const main_index_path = try std.fmt.allocPrint(
-        allocator,
-        "{s}/index.md",
-        .{options.content_path},
-    );
-    const main_index = try std.fs.openFileAbsolute(
-        main_index_path,
-        .{ .mode = .write_only },
-    );
-
-    const slug = try std.fmt.allocPrint(
-        allocator,
-        "## [{s}]({d}/)\n",
-        .{ data.post_name, resolved_index },
-    );
-
-    // Seek to the end.
-    try main_index.seekTo((try main_index.stat()).size);
-
-    try main_index.writeAll(slug);
-
-    main_index.close();
 }

@@ -2,12 +2,29 @@
 
 <head id="head">
     <link rel="stylesheet" type="text/css" href="/blog.css">
+    <link rel="stylesheet" type="text/css" href="/index.css">
 </head>
 
 <center>
-    <div class="wrapper">
-        <div id="content"> 
-            <div var="$page.content"></div>
+    <div id="content"> 
+        <div var="$page.content"></div>
+        <br><br>
+        <h1>Blog List</h1>
+        <hr>
+        <br>
+        <div loop="$site.pages()">
+            <a href="$loop.it.permalink()" class="post-link" var="$loop.it.title"></a>
+        </div>
+
+        <div id="extra">
+            <br><br>
+            <h1>Extra</h1>
+            <hr>
+            <br>
+            <a href="/index.xml" class="post-link">RSS</a>
+            <a href="https://vortan.dev" class="post-link">Person Site</a>
+            <a href="https://github.com/Rexicon226/blog" class="post-link">Source Code</a>
         </div>
     </div>
 </center>
+
