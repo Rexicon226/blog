@@ -1,0 +1,34 @@
+---
+.title = "Efficient E-Matching for Super Optimizers",
+.date = @date("2025-04-17T00:00:00"),
+.author = "David Rubin",
+.layout = "post.shtml",
+.draft = false,
+--- 
+
+## What is E-Matching?
+
+At a high level, E-Matching is a technique for pattern matching. Let's say you're
+trying to apply an axiom like:
+
+```=mathtex
+\forall x.\ f(x) = x
+```
+
+The solver must find terms in its database that match `f(x)`. These need to
+match syntactically, and *up to equality*. That's the "E" in E-matching.
+It refers to equality reasoning, usually captured using "E-Graphs" or congruence closures.
+
+## Why is it Hard?
+
+In large problems, there can be thousands or millions of terms, and many
+of them are equal to each other in complex ways. A naive pattern-matcher would
+blow up trying to check all possible matches. So the challenge is: **how do we 
+efficiently find all relevant matches, without scanning everything**?
+
+Well, Leonardo De Moura et al. 
+[explain some interesting insights into the field in their paper.](https://leodemoura.github.io/files/ematching.pdf)
+Their idea that by combinng [discrimination trees](https://books.google.com/books?id=K0e1599Kb_sC&lpg=PP1&dq=handbook+of+automated+reasoning&pg=PA1853#v=onepage&q&f=false)
+(from term indexing) with [congruence closures](https://www.bodunhu.com/blog/posts/congruence-closure/)
+(from equality reasoning), the matching algorithm can be much faster -- essentially
+filtering out the most irrelevant terms *before* we even start checking for equality.
