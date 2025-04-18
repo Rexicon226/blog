@@ -101,7 +101,6 @@ world.
 The rest of this blog post is a breakdown of how that algorithm works, why it matters, and how I
 Implemented a variation on the same idea in Zob to work on E-Graphs.
 
-
 ## [Naive Matching and Its Limits]($section.id('naive_matching'))
 
 First, let's take a step back from the problem and explore the more obvious and naive solution.
