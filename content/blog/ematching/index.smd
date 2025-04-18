@@ -6,7 +6,9 @@
 .draft = false,
 --- 
 
-## What is E-Matching?
+## Introduction
+
+### What is E-Matching?
 
 At a high level, E-Matching is a technique for pattern matching. Let's say you're
 trying to apply an axiom like:
@@ -18,6 +20,183 @@ trying to apply an axiom like:
 The solver must find terms in its database that match `f(x)`. These need to
 match syntactically, and *up to equality*. That's the "E" in E-matching.
 It refers to equality reasoning, usually captured using "E-Graphs" or congruence closures.
+
+###  Why it’s usually associated with SMT solvers
+
+E-matching comes from the world of [SMT Solvers](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories),
+where it's used to instantiate quantified axioms during the proof search. 
+The general setup is: the solver knows a bunch of equalities and terms, and it's trying
+to apply some universal quantified formauls, like `∀x. f(x) = x`. To do this effectively,
+it needs to search for instances of `f(x)` inside of a big heap of terms - 
+but doing that *modulo equality*.
+
+In solvers like [Z3](https://github.com/Z3Prover/z3), E-matching is key to making quantifiers tractable. Without it, you'd have to 
+blindly try substitutions or generate ground instances randomly - both of which scale terribly,
+for the obvious reasons. E-matching provides a middle ground: a way to find promising instantiations
+by searching through terms that *already exist* in the solver's database. 
+
+
+### What is an E-Graph?
+
+To explain my usecase for this style of E-matching, I first need to explain what an E-Graph is.
+I highly recommend reading [this](https://www.mwillsey.com/papers/egglog) on the subject.
+
+The basic idea is quite simple, we have 3 important things to understand.
+
+- E-Nodes - This is a specific node in the graph, which has some sort of property. This could be
+addition or a comparison, or something related to control flow such as a [Sea of Nodes](https://en.wikipedia.org/wiki/Sea_of_nodes)
+branch node. All that we care about is that it has some operands, such as the left and right hand sides
+of an addition, and it results in some value or "dependency".
+
+- E-Class - An E-Class is a *group* of the aforementioned E-Nodes. This is no ordinary collection
+of nodes however, they are all equivalent, hence the "E" in "E-Class". This means that nodes 
+in the E-Class must be perfectly interchangable with each other.
+
+- E-Graph - A directed graph (note that it's *not* acyclic, this is important for certain rewrite
+rules, which can be applied to their own result), which contains some number of E-Classes. The 
+E-Nodes inside of those classes contain edges to other E-Classes. This is because
+using this neat E-Class equivalence invariance, a node can choose any other node inside of the
+operand E-Classes, and the result will be guaranteed to be the same.
+
+![Basic Example of an E-Graph](graph_1.png)
+
+In this E-Graph, we have four constants, `10`, `20`, `30`, and `add`. The orange dotted lines
+represent E-Classes, all nodes inside of the dotted lines are equivalent. You'll notice that 
+there are 3 E-Classes, one of which contains two nodes. 
+Through peephole optimizations, such as constant folding, we're able to prove that 
+`(+ 10 20)` is equal to `30`. After this  relationship is found, we can "union"
+the classes containing `30` and the `(+ 10 20)` nodes, merging them into one.
+
+### Using E-Matching in Superoptimization
+
+I originally came across this idea, not while building an SMT solver, but while building a 
+"superoptimizer" using the previously explained E-Graphs, [called Zob](https://github.com/Rexicon226/zob).
+
+A superoptimizer is just a fancy way to say an optimizer, which uses an SMT solver to 
+find the "optimal" solution. Zob for example has multiple E-Graph extraction backends, through either
+Z3 or a hand-written one.
+
+In Zob, the job is to find equivalent, but cheaper, versions of the IR by applying rewrite rules.
+There are other, more involved, optimization passes, but rewrites are the back-bone of it. These
+rewrites take on the form of classical peephole-style optimization, such as the transformation
+`x * 1 -> x` or `x + 0 -> x`, or more complex identities such as bit-twiddling or factoring.
+
+The problem is familiar, for each rewrite rule, I need to find subterms in the E-Graph that match
+the LHS of the rule, up to equality. Unfortunately the E-Graph can have potentially tens of 
+thousands of E-Nodes in it, so doing it efficiently is a challenge.
+
+So our problem statement can be defined as: 
+
+> How can we find matching patterns in an E-Graph efficiently, without wasting time on redundant
+or irrelevant paths?
+
+The paper [*Efficient E-matching for SMT Solvers*](https://leodemoura.github.io/files/ematching.pdf)
+gives an incredibley elegant and practical answer - one that can be transplanted into the optimization
+world.
+
+The rest of this blog post is a breakdown on how that algorithm work, why it matters, and how I
+implemented a variation on the same idea in Zob to work on E-Graphs.
+
+
+## Naive Matching and its Limits
+
+First, let's take a step back from the problem and explore the more obvious and naive solution.
+This should help us get a better grasp on the basic concepts involved.
+
+For context, you can find the old naive approach also implemented in Zob [here](https://github.com/Rexicon226/zob/blob/d0c2f2c3e9e1a37e16ceb48d7f07a4241c9c8dc8/src/passes/rewrite.zig#L94-L225),
+although it's since been deleted and replaced with the better one.
+
+The basic idea is quite simple. Take this basic rewrite rule for example:
+
+```=mathtex
+x \cdot 1 \rightarrow x
+```
+
+Let's break down the left-hand side of the rewrite rule.
+
+- The multiplication is the "root" of the expression. This can be easier seen when we write
+it as S-expression: `(* x 1)`.
+
+- The `x` is what's called a "binding". It basically is a placeholder for anything. The only
+rule is that whenever the same binding is used multiple times, they must be equivalent. This is 
+very easy to ensure in an E-Graph, since we can just say that they're equivalent if they're in
+the same E-Class.
+
+- The `1` is pretty self-explantory. It's the constant `1`. Something to note is that constants 
+are a form of "absorbing" node, meaning that an E-Class can only contain one of them. Constants
+are unique, and if two constants are equal, then they are the same E-Node therefore
+they are in the same E-Class.
+
+Our naive algorithm looks something like this (in magical Zig-esk psuedo-code):
+
+```zig
+/// Returns true if `pattern` matched with the node in the E-Graph, `false` otherwise.
+fn search(graph: *Graph, node: Node, pattern: Pattern) bool {
+    if (pattern.root == node) {
+      for (node.operands(), pattern.operands()) |child, sub_pattern| {
+          const result = searchClass(graph, child, sub_pattern);
+          if (!result) return false;
+      }
+      return true;
+    } 
+    return false;
+}
+
+fn searchClass(graph: *Graph, class: Class, pattern: Pattern) bool {
+    for (class.nodes) |node| { // Iterate over just the equivalent nodes.
+        if (search(graph, node, pattern)) return true;
+    }
+    return false;
+}
+```
+
+Then we'd call this `search` function on every single node in the graph, and collect all
+of the matches. This approach is extremely wasteful, since we're exploring possiblities
+that can easily be ruled out, or have already been searched. The real killer to
+this approach is the depth and number of variables in a pattern.
+
+I believe the time complexity is something close to
+```=mathtex
+\mathcal{O}(m \cdot |E|^k)
+```
+
+Where `m` is the total number of E-Nodes in the graph, `|E|` is the average number of 
+equivalent nodes per E-Class, and `k` is the number of pattern variables.
+
+
+
+
+1. Introduction
+  a. What is ematching
+  b. Why it’s usually associated with SMT solvers
+  c. My motivation: applying it in the world of e-graphs and superoptimization (mention zob)
+  d. The central question: “How can we find matching patterns in a e-graph efficiently?”.
+2. E-Matching, Rewrites, ad E-Graphs
+  a. Explain what super optimization is
+  b. Define E-graphs and how they’re used in super optimization (prob show graph from zob graphviz)
+  c. Explain how rewrite rules work, and why they require pattern matching modulo equality. Show where they’re defined in Zob.
+  d. Draw the connection, e-matching is exactly what’s needed here to search for classes to apply the rewrites to.
+3. Naive Matching and its Limits
+  a. Describe the naive approach
+    1. Walking the e-graph, trying to apply each pattern recursively by just search its operands
+  b. Discuss performance bottlenecks
+    1. Repetition
+    2. Redundant matching across equivalence classes (show some examples)
+    3. No filtering
+  c. Show the code in Zob that used to do that recursive approach
+4. Describe the paper’s core insights.
+  a. Summary
+    1. Using discrimination trees to index patterns link
+    2. Combine with congruenc closure to match modulo equality link
+  b. Show those ideas but for e-graphs
+    1. Terms = nodes in the e-graph
+    2. Equality = union-find inside thee e-graph
+    3. Matching = finding rule LHS that fits into the graph, not how it can be any node in the class.
+5. Implementing it in an E-Graph context
+  a. Walk through my implementation
+6. Go step by step through an example of a rewrite being searched for
+
+
 
 ## Why is it Hard?
 

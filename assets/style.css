@@ -19,7 +19,7 @@ a {
 html {
   color: #ccc;
   font-family: "Georgia", serif;
-  font-size: 0.9em;
+  font-size: 1.0em;
   display: flex;
   flex-direction: row;
   justify-content: center;
