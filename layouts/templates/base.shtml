@@ -15,13 +15,6 @@
   </head>
   <body id="body">
     <h1 class="site-title" :text="$site.title"></h1>
-    <nav>
-      <a href="$site.page('').link()">Home</a>
-       &nbsp; • &nbsp;
-      <a href="$site.page('about').link()">About</a>
-       &nbsp; • &nbsp;
-      <a href="$site.page('blog').link()">Blog</a>
-    </nav>
     <super>
     <footer>
       <hr>
