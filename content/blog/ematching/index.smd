@@ -58,14 +58,17 @@ E-Nodes inside those classes contain edges to other E-Classes. This is because
 using this neat E-Class equivalence invariance, a node can choose any other node inside the
 operand E-Classes, and the result will be guaranteed to be the same.
 
-![Basic Example of an E-Graph](graph_1.png)
+![Basic Example of an E-Graph](graph_1.png "e_graph")
 
-In this E-Graph, we have four constants, `10`, `20`, `30`, and `add`. The orange dotted lines
-represent E-Classes; all nodes inside the dotted lines are equivalent. You'll notice that 
-there are 3 E-Classes, one of which contains two nodes. 
+In this E-Graph, we have 6 nodes, `10`, `20`, `30`, `40`, `mul`, and `add`. The orange boxes
+represent E-Classes; all nodes inside are equivalent. You'll notice that 
+there are 5 E-Classes, one of which contains two nodes. 
 Through peephole optimizations, such as constant folding, we're able to prove that 
 `(+ 10 20)` is equal to `30`. After this  relationship is found, we can "union"
 the classes containing `30` and the `(+ 10 20)` nodes, merging them into one.
+
+Afterwards, the multiplication will result in the same value, no matter if it looks
+like `(10 + 20) * 40` or `30 * 40`.
 
 ### Using E-Matching in Superoptimization
 
@@ -88,7 +91,7 @@ thousands of E-Nodes in it, so doing it efficiently is a challenge.
 So our problem statement can be defined as: 
 
 > How can we find matching patterns in an E-Graph efficiently, without wasting time on redundant
-Or irrelevant paths?
+or irrelevant paths?
 
 The paper [*Efficient E-matching for SMT Solvers*](https://leodemoura.github.io/files/ematching.pdf)
 gives an incredibly elegant and practical answer - one that can be transplanted into the optimization
@@ -353,3 +356,8 @@ In the first instruction, we bind the register `$0` to the `mul` node, only if t
 match. If that ends up happening, we will run the second instruction, and try to bind
 the `$2` register to the constant `20`. If that also matches, then we have completed the search,
 and a match has been found!
+
+
+### Conclusion
+
+TODO

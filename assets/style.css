@@ -83,3 +83,5 @@ footer {
 footer hr {
   width: 100%;
 }
+
+img[alt=e_graph] { width: 400px; }
