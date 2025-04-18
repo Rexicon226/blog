@@ -33,7 +33,7 @@ jobs:
         with:
           version: v0.10.1
 
-      - name: Release
+      - name: Build
         run: zine release
 
       - name: Setup Pages
