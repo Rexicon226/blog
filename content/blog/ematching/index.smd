@@ -26,8 +26,8 @@ It refers to equality reasoning, usually captured using "E-Graphs" or congruence
 E-matching comes from the world of [SMT Solvers](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories),
 where it's used to instantiate quantified axioms during the proof search. 
 The general setup is: the solver knows a bunch of equalities and terms, and it's trying
-to apply some universal quantified formauls, like `∀x. f(x) = x`. To do this effectively,
-it needs to search for instances of `f(x)` inside of a big heap of terms - 
+to apply some universal quantified formulas, like `∀x. f(x) = x`. To do this effectively,
+it needs to search for instances of `f(x)` inside a big heap of terms - 
 but doing that *modulo equality*.
 
 In solvers like [Z3](https://github.com/Z3Prover/z3), E-matching is key to making quantifiers tractable. Without it, you'd have to 
@@ -38,30 +38,30 @@ by searching through terms that *already exist* in the solver's database.
 
 ### What is an E-Graph?
 
-To explain my usecase for this style of E-matching, I first need to explain what an E-Graph is.
+To explain my use case for this style of E-matching, I first need to explain what an E-Graph is.
 I highly recommend reading [this](https://www.mwillsey.com/papers/egglog) on the subject.
 
 The basic idea is quite simple, we have 3 important things to understand.
 
 - E-Nodes - This is a specific node in the graph, which has some sort of property. This could be
-addition or a comparison, or something related to control flow such as a [Sea of Nodes](https://en.wikipedia.org/wiki/Sea_of_nodes)
+an addition or a comparison, or something related to control flow, such as a [Sea of Nodes](https://en.wikipedia.org/wiki/Sea_of_nodes)
 branch node. All that we care about is that it has some operands, such as the left and right hand sides
 of an addition, and it results in some value or "dependency".
 
 - E-Class - An E-Class is a *group* of the aforementioned E-Nodes. This is no ordinary collection
-of nodes however, they are all equivalent, hence the "E" in "E-Class". This means that nodes 
-in the E-Class must be perfectly interchangable with each other.
+of nodes, however, they are all equivalent, hence the "E" in "E-Class". This means that nodes 
+in the E-Class must be perfectly interchangeable with each other.
 
 - E-Graph - A directed graph (note that it's *not* acyclic, this is important for certain rewrite
-rules, which can be applied to their own result), which contains some number of E-Classes. The 
-E-Nodes inside of those classes contain edges to other E-Classes. This is because
-using this neat E-Class equivalence invariance, a node can choose any other node inside of the
+rules, which can be applied to their result), which contains some number of E-Classes. The 
+E-Nodes inside those classes contain edges to other E-Classes. This is because
+using this neat E-Class equivalence invariance, a node can choose any other node inside the
 operand E-Classes, and the result will be guaranteed to be the same.
 
 ![Basic Example of an E-Graph](graph_1.png)
 
 In this E-Graph, we have four constants, `10`, `20`, `30`, and `add`. The orange dotted lines
-represent E-Classes, all nodes inside of the dotted lines are equivalent. You'll notice that 
+represent E-Classes; all nodes inside the dotted lines are equivalent. You'll notice that 
 there are 3 E-Classes, one of which contains two nodes. 
 Through peephole optimizations, such as constant folding, we're able to prove that 
 `(+ 10 20)` is equal to `30`. After this  relationship is found, we can "union"
@@ -73,38 +73,38 @@ I originally came across this idea, not while building an SMT solver, but while 
 "superoptimizer" using the previously explained E-Graphs, [called Zob](https://github.com/Rexicon226/zob).
 
 A superoptimizer is just a fancy way to say an optimizer, which uses an SMT solver to 
-find the "optimal" solution. Zob for example has multiple E-Graph extraction backends, through either
-Z3 or a hand-written one.
+find the "optimal" solution. Zob, for example, has multiple E-Graph extraction backends, through either
+Z3 or a handwritten one.
 
 In Zob, the job is to find equivalent, but cheaper, versions of the IR by applying rewrite rules.
-There are other, more involved, optimization passes, but rewrites are the back-bone of it. These
+There are other, more involved, optimization passes, but rewrites are the backbone of it. These
 rewrites take on the form of classical peephole-style optimization, such as the transformation
 `x * 1 -> x` or `x + 0 -> x`, or more complex identities such as bit-twiddling or factoring.
 
 The problem is familiar, for each rewrite rule, I need to find subterms in the E-Graph that match
-the LHS of the rule, up to equality. Unfortunately the E-Graph can have potentially tens of 
+the LHS of the rule, up to equality. Unfortunately, the E-Graph can have potentially tens of 
 thousands of E-Nodes in it, so doing it efficiently is a challenge.
 
 So our problem statement can be defined as: 
 
 > How can we find matching patterns in an E-Graph efficiently, without wasting time on redundant
-or irrelevant paths?
+Or irrelevant paths?
 
 The paper [*Efficient E-matching for SMT Solvers*](https://leodemoura.github.io/files/ematching.pdf)
 gives an incredibley elegant and practical answer - one that can be transplanted into the optimization
 world.
 
-The rest of this blog post is a breakdown on how that algorithm work, why it matters, and how I
-implemented a variation on the same idea in Zob to work on E-Graphs.
+The rest of this blog post is a breakdown of how that algorithm works, why it matters, and how I
+Implemented a variation on the same idea in Zob to work on E-Graphs.
 
 
-## Naive Matching and its Limits
+## Naive Matching and Its Limits
 
 First, let's take a step back from the problem and explore the more obvious and naive solution.
-This should help us get a better grasp on the basic concepts involved.
+This should help us get a better grasp of the basic concepts involved.
 
 For context, you can find the old naive approach also implemented in Zob [here](https://github.com/Rexicon226/zob/blob/d0c2f2c3e9e1a37e16ceb48d7f07a4241c9c8dc8/src/passes/rewrite.zig#L94-L225),
-although it's since been deleted and replaced with the better one.
+Although it's since been deleted and replaced with the better one.
 
 The basic idea is quite simple. Take this basic rewrite rule for example:
 
@@ -114,20 +114,20 @@ x \cdot 1 \rightarrow x
 
 Let's break down the left-hand side of the rewrite rule.
 
-- The multiplication is the "root" of the expression. This can be easier seen when we write
+- The multiplication is the "root" of the expression. This can be more easily seen when we write
 it as S-expression: `(* x 1)`.
 
-- The `x` is what's called a "binding". It basically is a placeholder for anything. The only
-rule is that whenever the same binding is used multiple times, they must be equivalent. This is 
-very easy to ensure in an E-Graph, since we can just say that they're equivalent if they're in
+- The `x` is what's called a "variable" or "binding". It is a placeholder for anything. The only
+rule is that whenever the same binding is used multiple times, it must be equivalent. This is 
+easy to ensure in an E-Graph, since we can just say that they're equivalent if they're in
 the same E-Class.
 
-- The `1` is pretty self-explantory. It's the constant `1`. Something to note is that constants 
+- The `1` is pretty self-explanatory. It's the constant `1`. Something to note is that constants 
 are a form of "absorbing" node, meaning that an E-Class can only contain one of them. Constants
-are unique, and if two constants are equal, then they are the same E-Node therefore
+are unique, and if two constants are equal, then they are the same E-Node; therefore,
 they are in the same E-Class.
 
-Our naive algorithm looks something like this (in magical Zig-esk psuedo-code):
+Our naive algorithm looks something like this (in magical Zig-esk pseudo-code):
 
 ```zig
 /// Returns true if `pattern` matched with the node in the E-Graph, `false` otherwise.
@@ -151,20 +151,210 @@ fn searchClass(graph: *Graph, class: Class, pattern: Pattern) bool {
 ```
 
 Then we'd call this `search` function on every single node in the graph, and collect all
-of the matches. This approach is extremely wasteful, since we're exploring possiblities
+of the matches. This approach is extremely wasteful, since we're exploring possibilities
 that can easily be ruled out, or have already been searched. The real killer to
 this approach is the depth and number of variables in a pattern.
 
-I believe the time complexity is something close to
-```=mathtex
-\mathcal{O}(m \cdot |E|^k)
-```
-
+I believe the time complexity is something close to [`\mathcal{O}(m \cdot |E|^k)`]($mathtex).
 Where `m` is the total number of E-Nodes in the graph, `|E|` is the average number of 
 equivalent nodes per E-Class, and `k` is the number of pattern variables.
 
+## Where a Query Compiler Shines
+
+There are two main approaches that de Moura takes:
+
+###  Using Discrimination Trees to Index Patterns
+
+There is a neat concept called a [discrimination trees](https://books.google.com/books?id=K0e1599Kb_sC&lpg=PP1&dq=handbook+of+automated+reasoning&pg=PA1853#v=onepage&q&f=false),
+which is a trie-like data structure 
+that indexes terms by their syntactic structure. This enables fast lookups of all subterms
+that match the *shape* of a pattern (i.e the same head and arity). Think of it as a 
+pre-filtering step; it quickly narrows the search space to only potentially matching E-nodes.
 
 
+### What is a Congruence Closure?
+
+A bit of background before the next section. A congruence closure is the process of taking
+a set of known equalities and deriving all other equalities that logically follow. 
+
+Suppose we start with these known equalities: [`a = b\\ f(a) = c`]($mathtex)
+
+A congruence-closure algorithm will derive:: [`f(b) = f(a) = c`]($mathtex)
+
+Because, `a = b` therefore `f(a) = c`, so by congruence, `f(b) = f(a) = c`.
+This idea is what powers E-Graphs, being able to track equalities and propogate them structurally.
+
+A more formal definition looks something like:
+```=mathtex
+x_1 = y_1,\, x_2 = y_2,\, ...,\, x_n = y_n \Rightarrow f(x_1, x_2, ..., x_n) = f(y_1, y_2, ..., y_n)
+```
+
+So, think of it like, equal things stay equal when wrapped in the same context (`f(x)` in this context).
+This is *closure under congruence*.
+
+
+### Combining with Congruence Closure to Match Modulo Equality
+
+Now, the real breakthrough of this paper, in my view, comes from combining the "filtering"
+That comes from the discrimination trees with equality reasoning. In an E-Graph, multiple
+syntactically distinct terms can live in the same E-Class. Think back to the E-Graph example
+before, where we had an `(+ 10 20)` and a `30` node living in the same class. By combining
+these ideas, when we match over a variable like `x`, you're not binding it to a single term - 
+you're binding the variable to the entire E-Class.
+
+The algorithm treats pattern matching as a kind of [Relational Join](https://en.wikipedia.org/wiki/Relational_algebra#Joins_and_join-like_operators)
+operation over:
+
+- The children of E-Nodes in the E-Graph.
+- The constraints imposed by the pattern's structure.
+- The equivalence information from the [congruence closures](https://www.bodunhu.com/blog/posts/congruence-closure/).
+
+The join-based view allows you to:
+
+- Avoid revisiting equivalent matches.
+- Find all bindings that satisfy the pattern *up to equality*.
+- Share work across overlapping patterns.
+
+And it also lets you incrementally match, caching the partial results and using
+them in future matches. This is used for something called "Multipatterns", but 
+that won't be covered in this post. You can read about them in the Multipatterns
+section of the paper.
+
+
+## Using it in E-Graphs
+
+Note, you find find the whole implementation [here](https://github.com/Rexicon226/zob/blob/ed9010dddd687e4f4342f72bea92bc26054cbc94/src/passes/rewrite/machine.zig).
+This section will be taking out specific snippets of code and discussing them. 
+My design is heavily inspired by the implementation in [egg](https://github.com/egraphs-good/egg), I 
+recommend checking out that library, it's a treasure trove of interesting ideas.
+
+There are a few changes we need to make in order to fit this idea into E-Graphs. 
+
+The original paper's instruction set looks something like:
+
+- `init(f, next)` - Start matching the root of the pattern.
+- `bind(i, f, o, next)` - Enumerate all function applications in `reg[i]` that match
+the pattern head `f`.
+- `check(i, t, next)` - Check that `reg[i]` equals a constant term `t`, modulo equality.
+- `compare(i, j, next)` - Check that two registers point to equal terms (i.e., same E-Class).
+- `choose(alt, next)` - Push an alternate branch to the backtrace stack. 
+- `yield(i, ..., iₖ)` - Emit a successful match (substitution). 
+- `backtrace()` - Pop the next continuation from the backtrace.
+- `choose_app(o, next, s, j)` - Used inside `bind` to iterate through candidate terms `f(...)`.
+
+
+Ours will look a bit different. There are two main instructions:
+
+- `bind(f, i, o)` - Enumerate all function applications in `reg[i]` that match the pattern
+head `f`.
+- `compare(i, j)` - Compares whether `reg[i]` and `reg[j]` are equivalent (the same E-Class). 
+
+As well as `lookup` and `scan`, however these are needed as an optimization and for multipatterns,
+respectively, so they'll be excluded from this explination.
+
+Now let's walk through an example. We have an E-Graph that looks like this:
+```
+(add (mul 10 20) 30)
+```
+No need to point out the E-Classes here, since there are no two nodes that are equivalent.
+
+We want to search for all instances of the pattern `(mul x 20)`. 
+
+Step 1. Initialize the compiler with our pattern. 
+
+```zig
+fn addTodo(
+    c: *Compiler,
+    allocator: std.mem.Allocator,
+    pattern: SExpr,
+    id: SExpr.Index,
+    reg: Reg,
+) !void {
+    const node = pattern.get(id);
+    switch (node) {
+        ... // Removed for brevity. 
+        .node,
+        .constant,
+        => try c.todo_nodes.put(allocator, .{ id, reg }, node),
+    }
+}
+```
+
+The `node` variable here will be the root of the pattern, or in our case just the entire pattern,
+since it's so simple. Operators such as `mul` have the `node` tag, so we put it on the `todO_nodes`
+hashmap, along with an `id` which is just a reference to the root node, and the `reg` which will
+be the register associated with the class containing the `mul` node.
+
+Step 2. Emit instructions
+
+Now that we have that basic setup done (trust me, it get's way more complicated for larger pattern),
+we need to compile our query.
+
+We have an iterator that runs and gets the next query to compile. The main logic for it is 
+[here](https://github.com/Rexicon226/zob/blob/ed9010dddd687e4f4342f72bea92bc26054cbc94/src/passes/rewrite/machine.zig#L198-L222),
+and the goal is just sort the possible terms known to the compiler and find the "best" one. By doing
+this pre-filtering process, we're lining up the instructions to be emitted in a way that should, *in theory*,
+be more optimal and time efficient.
+
+Now that we have the next term, we can emit the instruction,
+```zig
+try c.instructions.append(allocator, .{ .bind = .{
+    .node = node,
+    .i = reg,
+    .out = out,
+} });
+
+for (node.operands(), 0..) |child, i| {
+    try c.addTodo(
+        allocator,
+        pattern,
+        child,
+        @enumFromInt(@intFromEnum(out) + i),
+    );
+}
+```
+
+The `node` the pattern head that was mentioned before, and `reg` is the E-Class that we 
+want to search through to find possible *syntactic* matches. Then we iterate through
+the operands of the pattern, so for our example that would be the variable `x` and the constant `20`,
+and add them to the queue to be picked out in the next iterations. You'll notice that 
+`constant`s are handled in the same way that `node`s are in the `addTodo` function above.
+
+Variables are handled a bit differently. Our goal isn't to match them with anything but themselves.
+Remember that when there's more than one of the same variable in a pattern, they must be equivalent,
+orelse the pattern fails to match. 
+
+Consider the example `(mul (div_exact ?x ?y) ?y)`. This is a common peephole to remove duplicate
+multiplications and divisions (in cases where they divide without a remainder), and it only works
+if `?x` is being divided and multiplied by the same thing.
+
+Because in our example there's only one `?x` binding, we don't actually need to compare it against
+anything else. If it did appear a second time the following code would have been triggered:
+```zig
+if (c.v2r.get(v)) |j| {
+    try c.instructions.append(allocator, .{ .compare = .{
+        .i = reg,
+        .j = j,
+    } });
+}
+```
+
+Where `v` is the variable name, and we could have created a compare instruction between the potential
+match `reg` and the already bound `j` register/class.
+
+So our final instructions look something like:
+```
+{ bind((mul %0, %1), $0), bind(20, $2) }
+```
+
+(Removed the out register from the bind instructions, since it isn't relevant to explaining this.)
+
+In the first instruction we bind the register `$0` to the `mul` node, only if they syntactically
+match. If that ended up happening, we will run the second instruction, and try to bind
+the `%2` register to the constant `20`. If that also matches, then we have completed the search,
+and a match has been found!
+
+### Ending
 
 1. Introduction
   a. What is ematching
