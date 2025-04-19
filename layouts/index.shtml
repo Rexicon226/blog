@@ -3,11 +3,10 @@
   <style>
     .date {
         font-size: 0.9em;
-      }
-      
-      .title h3{
-        margin-top: 0;
-      }
+    }
+    .title h3 {
+      margin-top: 0;
+    }
   </style>
 </head>
 <body id="body">
