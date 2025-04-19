@@ -15,7 +15,7 @@
     <super>
   </head>
   <body id="body">
-    <h1 class="site-title" :text="$site.title"></h1>
+    <a href="https://blog.vortan.dev" class="site-title" :text="$site.title"></a>
     <super>
     <footer>
       <hr>
