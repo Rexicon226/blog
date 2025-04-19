@@ -1,10 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Raleway');
+
 h1,
 h2,
 h3,
 h4,
 h5 {
   color: #ddd;
-  font-family: "Verdana", sans-serif;
+  font-family: "Raleway", sans-serif;
 }
 
 b,
@@ -18,7 +20,7 @@ a {
 
 html {
   color: #ccc;
-  font-family: "Georgia", serif;
+  font-family: "Raleway", serif;
   font-size: 1.0em;
   display: flex;
   flex-direction: row;
