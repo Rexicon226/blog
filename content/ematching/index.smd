@@ -64,13 +64,15 @@ and `add`. The orange boxes denote E-Classes, each containing semantically equiv
 You should note that the nodes `add` and `mul` have edges that are pointing to other orange
 boxes, not other nodes.
 
-
 Through peephole optimizations, such as constant folding, we're able to prove that 
 `10 + 20` is equal to `30`. After this relationship is found, we can perform a "union"
 on the two classes containing `30` and the `10 + 20` nodes, merging them into one.
 
 Afterwards, the `mul` node will result in the same value, no matter if it looks
 like `(10 + 20) * 40` or `30 * 40`.
+
+Note that this isn't a new idea, and optimizing compilers such as [cranelift](https://cranelift.dev/)
+use E-Graphs as a middle-IR in their optimization pipeline.
 
 ### [Using E-Matching in Superoptimization]($section.id('for_superoptimization'))
 
@@ -417,3 +419,14 @@ and a match has been found!
 
 ## [Conclusion]($section.id('conclusion'))
 
+We explained the basic ideas behind E-Graphs, and why such a data structure is 
+even useful.
+
+
+We explained what the basic ideas behind E-Graphs are and why such
+a data structure is even useful, went over the basic concepts needed 
+to understand the abstract matching machine,
+such as discrimination trees and congruence closures.
+
+And we walked through the most basic example of this process in action. In a future
+post (that may or may not happen), we will discuss more complex matching patterns and multipatterns.
