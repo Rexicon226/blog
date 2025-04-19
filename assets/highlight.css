@@ -4,53 +4,56 @@ pre {
   padding: 10px 5px;
 }
 
-
-/* code {
-  color: var(--green);
-} */
-
-/* code.zig {
-  color: var(--white);
-} */
-
 code.zig {
-  --light-yellow: #e5c07b;
-  --dark-yellow: #d19a66;
-  --blue: #61afef;
-  --cyan: #56b6c2;
-  --light-red: #e06c75;
-  --dark-red: #be5046;
-  --comment-gray: #5c6370;
-  --magenta: #c678dd;
+  --gray: #7c6f64;
+  --white: #eee;
+  --yellow: #fabd2f;
+  --dark-yellow: #d79921;
+  --light-green: #b8bb26;
+  --green: #98971a;
+  --blue: #458885;
+  --light-blue: #83a598;
+  --light-red: #fb4934;
+  --dark-red: #cc241d;
+}
+
+code.zig .keyword,
+code.zig .keyword_import,
+code.zig .keyword_function,
+code.zig .keyword_modifier,
+code.zig .keyword_return,
+code.zig .keyword_conditional,
+code.zig .keyword_exception,
+code.zig .keyword_repeat {
+  color: var(--light-red);
+}
+
+code.zig .function_call {
+  color: var(--yellow);
+}
+
+code.zig .type_builtin,
+code.zig .numeric.constant {
+  color: var(--green);
+}
+
+code.zig .punctuation_bracket,
+code.zig .punctuation_delimiter {
+  color: var(--blue)
+}
+
+code.zig .operator {
+  color: var(--dark-red);
+}
+
+code.zig .function {
+  color: var(--light-blue);
 }
 
 code.zig .string {
   color: var(--dark-yellow);
 }
 
-code.zig .variable,
-code.zig .field {
-  color: var(--light-yellow);
-}
-
-code.zig .keyword.function {
-  color: var(--light-red);
-}
-
-code.zig .bracket {
-  color: var(--cyan);
-}
-
-code.zig .function {
-  color: var(--blue);
-}
-
-code.zig .builtin {
-  color: var(--magenta);
-}
-
-code.zig .operator,
-code.zig .qualifier,
-code.zig .attribute {
-  color: var(--light-red);
+code.zig .comment {
+  color: var(--gray);
 }
