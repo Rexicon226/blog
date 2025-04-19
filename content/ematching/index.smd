@@ -8,6 +8,11 @@
 
 ## Introduction
 
+Modern theorem provers and optimizing compilers are built on an interesting 
+concept: the ability to recognize when two things are equal, even if they look
+completely different. It's not enough to just match the syntax - we need to 
+match the semantics as well. That's where E-Matching comes in.
+
 ### [What is E-Matching?]($section.id('what_is_ematching'))
 
 E-Matching is a pattern matching technique that considers syntactic structures
