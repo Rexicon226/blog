@@ -168,7 +168,7 @@ recursively exploring pattern applications, checking equalities, and backtracing
 a path doesn't work out. The search space can be enormous, especially when matching
 deep patterns or working with larger E-Graphs.
 
-To address this, de Moura proposes a much faster approach. **compile the pattern
+To address this, de Moura proposes a much faster approach, **compile the pattern
 into a virtual machine program**, and run that over the E-Graph. The key insight
 I find most interesting is to treat pattern matching as a join-like query over
 a relational structure - an approach that enables systematic pruning, reuse,
@@ -259,17 +259,19 @@ The upshot: what was once an exponential recursive traversal can now be executed
 efficiently as a flat program — thanks to compiled queries, 
 structural indexing, and congruence-aware reasoning.
 
-
 ## [Using it in E-Graphs]($section.id('using_it_in_egraphs'))
 
-Note, you can find the whole implementation [here](https://github.com/Rexicon226/zob/blob/ed9010dddd687e4f4342f72bea92bc26054cbc94/src/passes/rewrite/machine.zig).
-This section will be taking out specific snippets of code and discussing them. 
-My design is heavily inspired by the implementation in [egg](https://github.com/egraphs-good/egg), I 
-recommend checking out that library, it's a treasure trove of interesting ideas.
+To put this compiled-matching idea into practice, we need to take a detour
+into the virtual machine described in the paper.
 
-We need to make a few adjustments to adapt this idea to E-Graphs.
+### [The E-Matching Virtual Machine]($section.id('ematch_vm'))
 
-The original paper's instruction set looks something like:
+The paper proposes a simple but powerful virtal machine that executes a custom
+bytecode for pattern matching. Each pattern is compiled into a sequence of instructions
+that manipulate the abstract machine state - registers, continuations, and a backtracking
+stack.
+
+Here's the instruction set from the paper:
 
 - `init(f, next)` - Start matching the root of the pattern.
 - `bind(i, f, o, next)` - Enumerate all function applications in `reg[i]` that match
@@ -281,15 +283,23 @@ the pattern head `f`.
 - `backtrace()` - Pop the next continuation from the backtrace.
 - `choose_app(o, next, s, j)` - Used inside `bind` to iterate through candidate terms `f(...)`.
 
-
 Ours will look a bit different. There are two main instructions:
 
 - `bind(f, i, o)` - Enumerate all function applications in `reg[i]` that match the pattern
 head `f`.
 - `compare(i, j)` - Compares whether `reg[i]` and `reg[j]` are equivalent (the same E-Class). 
 
-As well as `lookup` and `scan`, however, those are needed as an optimization and for multipatterns,
-respectively, so they'll be excluded from this explanation.
+There are also instructions like `lookup` and `scan`, but those are used for optimization and 
+multipatterns, which we won't cover here.
+
+Note, you can find the whole implementation 
+[here](https://github.com/Rexicon226/zob/blob/ed9010dddd687e4f4342f72bea92bc26054cbc94/src/passes/rewrite/machine.zig).
+This section will be taking out specific snippets of code and discussing them. 
+My design is heavily inspired by the implementation in [egg](https://github.com/egraphs-good/egg), I 
+recommend checking out that library, it's a treasure trove of interesting ideas.
+
+
+### [Walkthrough]($section.id('walkthrough'))
 
 Now let's walk through an example. We have an E-Graph that looks like this:
 ```
@@ -299,7 +309,7 @@ No need to point out the E-Classes here, since there are no two equivalent nodes
 
 We want to search for all instances of the pattern `(mul x 20)`. 
 
-Step 1. Initialize the compiler with our pattern. 
+#### Step 1. Initialize the compiler with our pattern. 
 
 ```zig
 fn addTodo(
@@ -321,17 +331,16 @@ fn addTodo(
 
 The `node` variable here will be the root of the pattern, or in our case just the entire pattern,
 since it's so simple. Operators such as `mul` have the `node` tag, so we put it on the `todo_nodes`
-hashmap, along with an `id` which is just a reference to the root node, and the `reg` which will
-be the register associated with the class containing the `mul` node.
+array-hashmap, along with `reg` which will be the register associated with the class containing the `mul` node.
 
-Step 2. Emit instructions
+#### Step 2. Emit instructions
 
-Now that we have that basic setup done (trust me, it gets way more complicated for larger patterns),
+Now that we have that basic setup done (trust me, it gets a lot more complicated for larger patterns),
 we need to compile our query.
 
 We have an iterator that runs and gets the next query to compile. The main logic for it is 
-[here](https://github.com/Rexicon226/zob/blob/ed9010dddd687e4f4342f72bea92bc26054cbc94/src/passes/rewrite/machine.zig#L198-L222),
-and the goal is just to sort the possible terms known to the compiler and find the "best" one. By doing
+[here](https://github.com/Rexicon226/zob/blob/ed9010dddd687e4f4342f72bea92bc26054cbc94/src/passes/rewrite/machine.zig#L199-L222),
+and the goal is just to sort the possible terms known to the compiler and find the *closest* one. By doing
 this pre-filtering process, we're lining up the instructions to be emitted in a way that should, *in theory*,
 be more optimal and time efficient.
 
@@ -353,13 +362,14 @@ for (node.operands(), 0..) |child, i| {
 }
 ```
 
-The `node` is the pattern head that was mentioned before, and `reg` is the E-Class that we 
-want to search through to find possible *syntactic* matches. Then we iterate through
+The `node` variable is the pattern head that was mentioned before and `reg` is the E-Class that we 
+want to search through to find possible *syntactic* matches. Afterwards, we iterate through
 the operands of the pattern, so for our example that would be the variable `x` and the constant `20`,
 and add them to the queue to be picked out in the next iterations. You'll notice that 
 `constant`s are handled in the same way that `node`s are in the `addTodo` function above.
 
-Variables are handled a bit differently. Our goal isn't to match them with anything but themselves.
+Variables are handled a bit differently. They don't need to match with anything except other usages
+of the same binding.
 Remember that when there's more than one of the same variable in a pattern, they must be equivalent,
 or else the pattern fails to match. 
 
@@ -378,10 +388,21 @@ if (c.v2r.get(v)) |j| {
 }
 ```
 
-Where `v` is the variable name, we would have created a compare instruction between the potential
-match `reg` and the already bound `j` register/class.
+Where `v` is the variable name. The compare instruction makes sure that during the execution, 
+the E-Classes refered to by the `j` and `reg` registers are equal (or in our case, the same E-Class).
 
-So our final instructions look something like:
+The implementation of the `compare` instruction is incredibly simply:
+```zig
+.compare => |compare| {
+    const a = m.registers.items[@intFromEnum(compare.i)];
+    const b = m.registers.items[@intFromEnum(compare.j)];
+    if (oir.union_find.find(a) != oir.union_find.find(b)) {
+        return; // no match
+    }
+},
+```
+
+So our final query for the example above looks like:
 ```
 { bind((mul %0, %1), $0), bind(20, $2) }
 ```
@@ -396,4 +417,3 @@ and a match has been found!
 
 ## [Conclusion]($section.id('conclusion'))
 
-TODO
