@@ -268,7 +268,7 @@ into the virtual machine described in the paper.
 
 ### [The E-Matching Virtual Machine]($section.id('ematch_vm'))
 
-The paper proposes a simple but powerful virtal machine that executes a custom
+The paper proposes a simple but powerful virtual machine that executes a custom
 bytecode for pattern matching. Each pattern is compiled into a sequence of instructions
 that manipulate the abstract machine state - registers, continuations, and a backtracking
 stack.
@@ -391,7 +391,7 @@ if (c.v2r.get(v)) |j| {
 ```
 
 Where `v` is the variable name. The compare instruction makes sure that during the execution, 
-the E-Classes refered to by the `j` and `reg` registers are equal (or in our case, the same E-Class).
+the E-Classes referred to by the `j` and `reg` registers are equal (or in our case, the same E-Class).
 
 The implementation of the `compare` instruction is incredibly simply:
 ```zig
@@ -419,14 +419,22 @@ and a match has been found!
 
 ## [Conclusion]($section.id('conclusion'))
 
+In this post, we explored the core ideas behind E-Graphs - what they are, why they're
+useful, and how enable reasoning over equivalence. We explained the basic ideas
+required to understand the abstract matching machine, such as discrimination trees
+and congruence closures.
+
 We explained the basic ideas behind E-Graphs, and why such a data structure is 
-even useful.
+even useful. We looked at how these ideas come together in the query compiler
+described by de Moura.
 
+Finally, we walked through a minimal implementation of this approach for an E-Graph
+based optimizing compiler, showing how a couple of well-chosen instructions can replace
+the need for recursive tree walks and brute-force matching.
 
-We explained what the basic ideas behind E-Graphs are and why such
-a data structure is even useful, went over the basic concepts needed 
-to understand the abstract matching machine,
-such as discrimination trees and congruence closures.
+This only scratches the surface - we may explore more in future posts
+and dive into advanced topics like multipattern matching, backtracing strategies,
+and how the E-Graph extraction process works.
 
-And we walked through the most basic example of this process in action. In a future
-post (that may or may not happen), we will discuss more complex matching patterns and multipatterns.
+I hope this post gave you a clearer picture of how matching can be practical when
+backed by the right ideas.
