@@ -1,6 +1,6 @@
 Site {
     .title = "Sinon's Blog",
-    .host_url = "https://rexicon226.github.io",
+    .host_url = "http://blog.vortan.dev",
     .url_path_prefix = "blog",
     .content_dir_path = "content",
     .layouts_dir_path = "layouts",
