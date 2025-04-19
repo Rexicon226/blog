@@ -45,7 +45,7 @@ I recommend reading [this blog](https://www.cole-k.com/2023/07/24/e-graphs-prime
 
 The basic idea is quite simple, we have 3 important things to understand.
 
-- E-Nodes - These represent individual expressions or operations, such as addition or multiplications,
+- E-Nodes - These represent individual expressions or operations, such as addition or multiplication,
 within the graph. They sometimes have operands, such as the left and right-hand sides
 of an addition, and it results in some value or "dependency". 
 
@@ -59,14 +59,14 @@ rules, which can be applied to their result), which contains some number of E-Cl
 
 ![](graph_1.png "e_graph")
 
-The E-Graph comprises six nodes, the constants `10`, `20`, `30`, `40`, and the operations `mul`
+The E-Graph comprises six nodes: the constants `10`, `20`, `30`, `40`, and the operations `mul`
 and `add`. The orange boxes denote E-Classes, each containing semantically equivalent nodes.
 You should note that the nodes `add` and `mul` have edges that are pointing to other orange
 boxes, not other nodes.
 
 Through peephole optimizations, such as constant folding, we're able to prove that 
 `10 + 20` is equal to `30`. After this relationship is found, we can perform a "union"
-on the two classes containing `30` and the `10 + 20` nodes, merging them into one.
+on the two classes, containing `30` and the `10 + 20` nodes, merging them into one.
 
 Afterwards, the `mul` node will result in the same value, no matter if it looks
 like `(10 + 20) * 40` or `30 * 40`.
@@ -76,7 +76,7 @@ use E-Graphs as a middle-IR in their optimization pipeline.
 
 ### [Using E-Matching in Superoptimization]($section.id('for_superoptimization'))
 
-I first came across this idea while building a optimizing compiler using the 
+I first came across this idea while building an optimizing compiler using the 
 previously explained E-Graphs, [called Zob](https://github.com/Rexicon226/zob).
 
 Zob's goal is to find semantically equivalent but cheaper representations of its IR by
@@ -130,7 +130,7 @@ all usages of `x` are equal by requiring them to belong to the same E-Class.
 can contain only one. If two constants are equal, they are the same E-Node and are
 placed in the same E-Class.
 
-The naive matching algorithm might look something like this (in magical Zig-esk pseudo-code):
+The naive matching algorithm might look something like this (in magical Zig-esque pseudo-code):
 
 ```zig
 /// Returns true if `pattern` matched with the node in the E-Graph, `false` otherwise.
@@ -154,7 +154,7 @@ fn searchClass(graph: *Graph, class: Class, pattern: Pattern) bool {
 ```
 
 We'd then run this `search` function over every node in the E-Graph, collecting matches.
-But this approach is wildly inefficient. It wastes time exploring paths that are obviously
+But this approach is wildly inefficient. It wastes time exploring paths that are
 irrelevant or already explored. The bottleneck comes from the depth of the pattern
 and the number of variables it contains.
 
@@ -170,8 +170,8 @@ recursively exploring pattern applications, checking equalities, and backtracing
 a path doesn't work out. The search space can be enormous, especially when matching
 deep patterns or working with larger E-Graphs.
 
-To address this, de Moura proposes a much faster approach, **compile the pattern
-into a virtual machine program**, and run that over the E-Graph. The key insight
+To address this, de Moura proposes a much faster approach: **compile the pattern
+into a virtual machine program** and run that over the E-Graph. The key insight
 I find most interesting is to treat pattern matching as a join-like query over
 a relational structure - an approach that enables systematic pruning, reuse,
 and a sort of incremental compilation.
@@ -205,7 +205,7 @@ any equalities.
 
 ### [What is a Congruence Closure?]($section.id('congruence_closure'))
 
-But what about the cases where different-looking terms are actually equal?
+But what about the cases where different-looking terms are equal?
 
 For example, suppose an E-Graph knows that: 
 ```=mathtex
@@ -244,7 +244,7 @@ over:
 
 - The children of E-Nodes in the E-Graph.
 - The constraints imposed by the pattern's structure.
-- The equivalence maintained by [congruence closures](https://www.bodunhu.com/blog/posts/congruence-closure/).
+- The equivalence is maintained by [congruence closures](https://www.bodunhu.com/blog/posts/congruence-closure/).
 
 The join-based view allows you to:
 
@@ -296,9 +296,8 @@ multipatterns, which we won't cover here.
 
 Note, you can find the whole implementation 
 [here](https://github.com/Rexicon226/zob/blob/ed9010dddd687e4f4342f72bea92bc26054cbc94/src/passes/rewrite/machine.zig).
-This section will be taking out specific snippets of code and discussing them. 
 My design is heavily inspired by the implementation in [egg](https://github.com/egraphs-good/egg), I 
-recommend checking out that library, it's a treasure trove of interesting ideas.
+recommend checking out that library; it's a treasure trove of interesting ideas.
 
 
 ### [Walkthrough]($section.id('walkthrough'))
@@ -344,9 +343,9 @@ We have an iterator that runs and gets the next query to compile. The main logic
 [here](https://github.com/Rexicon226/zob/blob/ed9010dddd687e4f4342f72bea92bc26054cbc94/src/passes/rewrite/machine.zig#L199-L222),
 and the goal is just to sort the possible terms known to the compiler and find the *closest* one. By doing
 this pre-filtering process, we're lining up the instructions to be emitted in a way that should, *in theory*,
-be more optimal and time efficient.
+be more optimal and time-efficient.
 
-Now that we have the next term, we can emit the instruction,
+Now that we have the next term, we can issue the instruction,
 ```zig
 try c.instructions.append(allocator, .{ .bind = .{
     .node = node,
@@ -379,7 +378,7 @@ Consider the example `(mul (div_exact ?x ?y) ?y)`. This is a common peephole to 
 multiplications and divisions (in cases where they divide without a remainder), and it only works
 if `?x` is being divided and multiplied by the same thing.
 
-Because in our example there's only one `?x` binding, we don't need to compare it against
+Because in our example, there's only one `?x` binding, we don't need to compare it against
 anything else. If it did appear a second time the following code would have been triggered:
 ```zig
 if (c.v2r.get(v)) |j| {
@@ -393,7 +392,7 @@ if (c.v2r.get(v)) |j| {
 Where `v` is the variable name. The compare instruction makes sure that during the execution, 
 the E-Classes referred to by the `j` and `reg` registers are equal (or in our case, the same E-Class).
 
-The implementation of the `compare` instruction is incredibly simply:
+The implementation of the `compare` instruction is incredibly simple:
 ```zig
 .compare => |compare| {
     const a = m.registers.items[@intFromEnum(compare.i)];
@@ -412,7 +411,7 @@ So our final query for the example above looks like:
 (Removed the out register from the bind instructions, since it isn't relevant to explaining this.)
 
 In the first instruction, we bind the register `$0` to the `mul` node, only if they syntactically
-match. If that ends up happening, we will run the second instruction, and try to bind
+match. If that ends up happening, we will run the second instruction and try to bind
 the `$2` register to the constant `20`. If that also matches, then we have completed the search,
 and a match has been found!
 
