@@ -87,7 +87,7 @@ previously explained E-Graphs, [called Zob](https://github.com/Rexicon226/zob).
 Zob's goal is to find semantically equivalent but cheaper representations of its IR by
 applying rewrite rules. While there are additional, more complex optimization passes,
 rewrite rules form the core of the optimizer. These rewrites range from simple 
-peephole optimizations - like `x * 1 -> x` or `x + 0 -> x` - to more advanced
+peephole optimizations, such as `x * 1 → x` or `x + 0 → x`, to more advanced
 transformations involving bit manipulation or algebraic factoring.
 
 The challenge is familiar: for each rewrite rule, we need to find sub-terms in the E-Graph
@@ -123,7 +123,7 @@ x \cdot 1 \rightarrow x
 
 Let's break down the left-hand side of the rewrite rule.
 
-- The multiplication ([`\cdot`]($mathtex)) is the "root" of the expression. 
+- The multiplication (·) is the "root" of the expression. 
 Written as an S-expression, it becomes `(* x 1)`, which makes the structure more clear.
 
 
@@ -139,10 +139,10 @@ The naive matching algorithm might look something like this (in magical Zig-esqu
 
 ```zig
 /// Returns true if `pattern` matched with the node in the E-Graph, `false` otherwise.
-fn search(graph: *Graph, node: Node, pattern: Pattern) bool {
+fn search(node: Node, pattern: Pattern) bool {
     if (pattern.root == node) {
       for (node.operands(), pattern.operands()) |child, sub_pattern| {
-          const result = searchClass(graph, child, sub_pattern);
+          const result = searchClass(child, sub_pattern);
           if (!result) return false;
       }
       return true;
@@ -150,9 +150,9 @@ fn search(graph: *Graph, node: Node, pattern: Pattern) bool {
     return false;
 }
 
-fn searchClass(graph: *Graph, class: Class, pattern: Pattern) bool {
+fn searchClass(class: Class, pattern: Pattern) bool {
     for (class.nodes) |node| {
-        if (search(graph, node, pattern)) return true;
+        if (search(node, pattern)) return true;
     }
     return false;
 }
