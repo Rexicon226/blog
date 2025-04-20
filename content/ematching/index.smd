@@ -131,7 +131,7 @@ Written as an S-expression, it becomes `(* x 1)`, which makes the structure more
 as long as the usages of the variable are consistent. In the E-Graph, we can ensure that
 all usages of `x` are equal by requiring them to belong to the same E-Class.
 
-- The `1` is a constant. Constants are *absorbing* nodes in the E-Graph: each E-Class
+- The `1` is a constant. Constants are special nodes in the E-Graph: each E-Class
 can contain only one. If two constants are equal, they are the same E-Node and are
 placed in the same E-Class.
 
