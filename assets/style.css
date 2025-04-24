@@ -118,7 +118,7 @@ img[alt=e_graph] {
   align-self: center;
   box-sizing: border-box;
   width: 100%;
-  max-width: 90ch;
+  max-width: 75ch;
 }
 
 * {
