@@ -214,10 +214,10 @@ But what about the cases where different-looking terms are equal?
 
 For example, suppose an E-Graph knows that: 
 ```=mathtex
-a = b
-```
-```=mathtex
-f(a) = c
+\begin{aligned}
+  a  &= b \\
+f(a) &= c
+\end{aligned}
 ```
 
 By the rules of congruence, it should also know:
