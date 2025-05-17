@@ -1,0 +1,343 @@
+---
+.title = "ElGamal Encryption and Pedersen Commitments",
+.date = @date("2025-05-16T00:00:00"),
+.author = "David Rubin",
+.layout = "post.shtml",
+.draft = false,
+--- 
+
+# Introduction
+
+Modern cryptography is full of interesting ideas that hide secrets in plain sight.
+Two such ideas, the ones we'll be discussing in this post, are 
+[ElGamal Encryption](https://en.wikipedia.org/wiki/ElGamal_encryption) and 
+[Pedersen Commitments](https://www.zkdocs.com/docs/zkdocs/commitments/pedersen).
+These are well-known staples in privacy preserving protocols, from zero-knowledge
+proofs to blockchain privacy layers.
+
+I hope to demystify some of the math behind them. You don't need a degree in
+abstract algebra to understand - but you'll get to see the formulas, gain an intuition
+about the subject, and understand *why* they work, all from the perspective of 
+computer science ideas like modular arithmetics, hash functions, and "trapdoor" 
+functions.
+
+## [Background]($section.id('background'))
+
+Let's first set the stage and talk about a few things.
+
+- [Modular Arithmetic](https://en.wikipedia.org/wiki/Modular_arithmetic)
+- [Cyclic Groups](https://en.wikipedia.org/wiki/Cyclic_group)
+- [Discrete Log Problem](https://en.wikipedia.org/wiki/Discrete_logarithm)
+
+## [Modular Arithmetics]($section.id('modular_math'))
+
+If you've worked on hashing, pseudo-random number generators,
+or maybe some low-level bit flipping tricks,
+you've probably come across this idea. 
+
+```
+(a + b) % n
+```
+
+These particular arithmetics are "modular" because they work around a modular ring.
+When you perform an operation between two elements, if the result ends up larger
+than the `n` value, we "reduce" or "wrap" it back.
+
+```
+(2 + 10) % 7
+12 % 7
+5
+```
+```
+(4 * 4) % 7
+16 % 7
+2
+```
+
+This means that no matter what the inputs are to the addition or multiplication
+in our example, the result will always lie in the set of numbers,
+
+```
+{0, 1, 2, 3, 4, 5, 6}
+```
+
+In cryptography, we often work with this concept in the form of 
+finite integer sets, denoted by [`\mathbb{Z}_P`](/$).
+This notation is describing a "set of integers" (that's the fancy Z), where
+the set looks like:
+
+```
+{0, 1, ..., p - 2, p - 1}
+```
+
+Looking at the examples given before, we can describe that modular ring,
+the `N % 7`, as [`\mathbb{Z}_7`](/$). The largest number of the set
+is 6, i.e `13 % 7 == 6`.
+
+Now, this [`\mathbb{Z}_P`](/$) set is closed under addition, subtraction,
+and multiplication, so it is considered a **ring**. But for our purposes in 
+cryptography, we often want a **group**, which is a set where all operations have
+inverses.
+
+The problem occurs when we considered multiplication and the zero element of the set.
+
+In a group, every element must have an **inverse**. That means:
+
+For every [`a`](/$), there exists an [`a^{-1}`](/$) such that:
+
+```=mathtex
+a * a^{-1} \equiv 1 mod p
+```
+
+But, **zero has no inverse**. There's no number *x* such that:
+
+```=mathtex
+0 * x \equiv 1 mod p
+```
+
+No matter what you multiply 0 by, you always get 0. So zero **breaks** the inverse requirement,
+which disqualifies [`\mathbb{Z}_P`](/$) as a multiplicative group.
+
+To fix this problem, we just **remove zero from the set**:
+
+```=mathtex
+\mathbb{Z}_p^* = \{1, 2, ..., p - 1\}
+```
+
+This set is a group under multiplicative modulo *p*, as long as *p* is a prime number.
+
+This works because:
+
+- Every non-zero number [`a \in \mathbb{Z}_p^*`](/$) has a modular inverse
+[`a^{-1} \in \mathbb{Z}_p^*`](/$)
+- Modular multiplication is associative
+- There's an identity element (1)
+- And now, every element has an inverse - including `1` and `p - 1`.
+
+Think of 0 as a "trapdoor" in multiplication: once you fall into it, you can't
+get out. This is why cryptographic constructions often avoid it in multiplicative groups.
+
+It can also cause serious security issues, which is why 
+[cryptography libraries often disallow zero elements](https://github.com/ziglang/zig/blob/8e72a25285b5e782ee44828b6d1904d91fb16a29/lib/std/crypto/25519/edwards25519.zig#L248).
+
+
+## [Cyclic Groups]($section.id('cyclic_groups'))
+
+Next, we need to understand what cyclic groups are and why they're important.
+
+Imagine you have a number `g`, and you start raising it to powers - modulo some prime
+number `p`.
+
+```=mathtex
+g^1 mod p, g^2 mod p, g^3 mod p, ...
+```
+
+Eventually, due to the wrapping nature of modular arithmetics, the results loop
+back around, and you'll get 1 again. The set of all these results is a **cyclic group**,
+and the number `g` that generated them is called a **generator** of the group.
+
+A group [`\mathbb{G}`](/$) is considered cyclic is there's an element 
+[`g \in \mathbb{G}`](/$), such that every other element in [`\mathbb{G}`](/$)
+can be written as a power of `g`. That is:
+
+
+```=mathtex
+\mathbb{G} = \{g^0, g^1, g^2, ..., g^{n - 1}\}
+```
+
+where `n` is the size of the group. All powers are computed modulo some number,
+usually a prime.
+
+If you're working with integers modulo a prime `p`, the group 
+[`\mathbb{Z}_p^* = \{1, 2, 3, ..., p - 1\}`](/$) is a **multiplicative
+cyclic group** of size `p - 1`. Some number [`g \in \mathbb{Z}_p^*`](/$)
+is a **generator** if:
+
+```=mathtex
+\{g^1 mod p, g^2 mod p, g^3 mod p, ..., g^{p - 1} mod p\} = \mathbb{Z}_p^*
+```
+
+This means that just by knowing `g`, you can reach any number in the group by raising
+it to the right power. 
+
+This property is important for the concepts we're exploring in this post. 
+Raising `g` to a power `x` is **easy**:
+```
+y = pow(g, x, p)
+```
+
+But given [`y = g^x mod p`](/$), trying to figure out what `x` was is **hard**.
+This is the core of the **Discrete Logarithm Problem** (DLP), and it's
+what makes schemes like Pedersen commitments and ElGamal encryption secure.
+
+You can think of it like a hash function - one-way, deterministic, and extremely
+hard to invert.
+
+A couple more thoughts on cyclic groups in regards to cryptography:
+
+They are useful since they are both compact and effienct, you only
+need to store one number `g` to define the whole group, and you can 
+jump to any element with exponentiation. 
+
+Not all groups are "good" when it comes to security. Some groups are not cyclic,
+they don't have a single generator that can reach every element in the set. Others
+are cyclic but not secure (either the group is too small or DLP is easy). That's
+why cryptographic applications use very specific kinds of cyclic groups:
+
+- Multiplicative groups where `p` is a (very) large prime
+- Elliptic curve groups, but those are for another blog post.
+
+## [Discrete Log Problem]($section.id('dlp')) 
+
+I've mentioned DLP a few times now, but let's take a moment to understand what is
+so important about it. At the heart of many cryptographic systems is one 
+simple question:
+
+> If I give you [`y = g^x mod p`](/$), can you figure out what `x` is?
+
+In everyday math, this would be like solving:
+
+```=mathtex
+y = g^x \Rightarrow x = log_g(y)
+```
+
+But in **modular arithmetic**, logarithms behave very differently. Given:
+
+```=mathtex
+y = g^x mod p
+```
+
+There is no shortcut for recovering `x`, for a large enough `p`, the only option
+is to test every possible element of the set. 
+
+When encrypting or signing, schemes use *exponentiation* as discussed in the cyclic
+groups chapter. There are algorithms for this that have logarithmic complexity
+in relation to the number of group elements: [`\mathcal{O}(|n|)`](/$). Considering
+that in the brute-force algorithm we need to exponentiate each element,
+the time complexity of the algorithm is [`\mathcal{O}(2^{|n|})`](/$).
+
+For a secure cyclic group, this means that it is practically unsolvable for our
+modern computational resources. However, it is of course possible to have an 
+*unsecure* group, where the DLP is relatively speaking "easy" to solve, or
+possible in polynomial time.
+
+The easiest way is to just have a large group. 256-bit primes are a common
+way to achieve this, with the famous Curve25519 having the order [`2^{255}-19`](/$).
+Unfortunately, there exist other properties that can weaken the group, one
+of the most common being "weak subgroups".
+
+A subgroup is simply a smaller set of elements within a group that still follows
+the same group rules. That is, if you take any two elements from the subgroup
+and multiply them together, you stay within the subgroup.
+
+For example, suppose you're working with the multiplicative group
+[`\mathbb{Z}_p^*`](/$). A **subgroup** might be a smaller set of numbers
+within [`\mathbb{Z}_p^*`](/$) that also loop around nicely when you raise
+them to powers. Every subgroup has a **generator** - 
+just like with the full group - and an **order**, which is the number of elements
+in the subgroup.
+
+Small subgroups are a big problem in cryptography because they **shrink
+the space an attacker has to search** when brute forcing. If an attacker
+can trick your system into operating inside of a small subgroup, they might
+only need to try a handful of values to brute-force secrets like exponents
+or keys.
+
+There are plenty of sources that go into further detail about this problem:
+
+- [Logjam Attach](https://weakdh.org/)
+- [CVE-2002-20001](https://www.watchguard.com/wgrd-psirt/advisory/wgsa-2024-00008)
+- [RFC 2785](https://www.rfc-editor.org/rfc/rfc2785.txt)
+- [CVE-2017-9248](https://nvd.nist.gov/vuln/detail/CVE-2017-9248)
+
+In elliptic curve cryptography, 
+[performing subgroup membership checks](https://github.com/firedancer-io/firedancer/blob/45cdc04230210cc4c9e31b3e7f67058267a22a84/src/ballet/bn254/fd_bn254_g2.c#L354-L391)
+for groups with an order that isn't a prime is very important, 
+to avoid these sorts of security issues.
+
+# [Pedersen Commitments]($section.id('pedersen_commitment'))
+
+In cryptography, a **commitment scheme** lets you *lock in a value* while 
+keeping it hidden - like sealing a message in an envelope. Later, you can open
+the envelope to reveal what you committed to. This simple idea is a foundational
+building block in many cryptographic protocols, from zero-knowledge proofs to secure
+voting systems.
+
+A good commitment scheme must have two important properties:
+
+- **Hiding**: The commitment doesn't reveal anything about the value being committed.
+Until you open it, it should look completely random.
+- **Binding**: Once you've committed to a value, you can't change your mind. 
+You're "locked in."
+
+These two properties are in tension. Hiding ensures the commitment gives away
+no information about the underlying value; binding ensures you can't cheat and
+claim you committed to a different value later.
+
+Think of a physical safe: you can put a piece of paper inside, lock it,
+and show someone the locked safe. They can't see what's inside (hiding), 
+and once it's locked, you can't change what's in it without being 
+noticed (binding). When you give them the combination later, they can verify
+that what you committed to was in the safe all along.
+
+In the digital world, the "safe" is a short piece of cryptographic data 
+(a committment) - typically much smaller than the original value -
+but it plays the same role.
+
+
+---
+
+1. Introduction
+
+    a. Modular Arithmetics
+
+        i. Why zero is exluded from multiplicative groups
+        ii. Importance of prime moduli for security
+
+    b. Cyclic groups
+
+        i. group exponentiation as a one way function
+        ii. elliptic curve groups vs prime field multiplicative groups
+
+    c. Discrete Log Problem
+
+        i. why it's hard (no PLT alg)
+        ii. what kind of groups make DLP hard vs easy (small subgroup attacks or weak curves)
+        iii. explain ecc DLP?
+
+2. Pedersen Commitments
+
+    a. What is a commitment
+        
+        i. commitments should be binding and hiding
+        ii. real world example? locking a value in a safe
+
+    b. Run through the formulas
+
+        i. explain why we need two generators and that the discrete log between them
+            must not be known
+        ii. show additive homomorphism
+
+    c. Show that it is secure via DLP
+    
+        i. binding relies on difficulty of finding two openings for same commitment
+        ii. hiding relies on randomness, information theoretic hiding
+
+3. ElGamal Encryption
+
+    a. What is twisted elgamal 
+
+        i. compare between regular elgamal and twisted
+        ii. explain reason for twist (decouple encryption from message group elements)
+    
+    b. run through encryption + decryption steps
+
+    c. twisted elgamal supports homomorphic addition over encrypted messages
+
+4. Why this matters
+    
+    a. zkp (bullet proofs use pedersen commitments)
+    
+    b. confidential transactions in blockchains (monero, zcash)
+
+    c. voting, multi-party computation, identity protocols
