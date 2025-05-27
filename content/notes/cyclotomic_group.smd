@@ -19,7 +19,7 @@ Background concepts we need to know:
 
 Let [`\mathbb{F}_p`](/$) denote the **prime field** of
 characteristic [`p`](/$), with [`p`](/$) a prime number.
-This field contains example [`p`](/$) elements and is
+This field contains [`p`](/$) elements and is
 the starting point for constructing larger fields.
 
 A **field extension** [`\mathbb{F}_{p^n}`](/$) is a field
@@ -40,7 +40,7 @@ Each element in [`\mathbb{F}_{p^n}`](/$) can be represented
 as:
 
 ```=mathtex
-a_0 + {a_1}x + {a_2}x^2 + ... + {a^{n-1}}x^{n - 1}, \; \text{with} \; a_i
+a_0 + {a_1}x + {a_2}x^2 + ... + {a_{n-1}}x^{n - 1}, \; \text{with} \; a_i
 \in \mathbb{F}_p
 ```
 
@@ -65,7 +65,7 @@ This layered approach enables more effienct arithmetic, since:
 Each step uses an irreducible polynomial over the previous field. For example:
 
 - [`\mathbb{F}_{p^2} = \mathbb{F}_p[u]/(u^2 + 1)`](/$) (quadratic extension)
-- [`\mathbb{F}_{p^6} = \mathbb{F}_{p^2}[v](v^3 - \xi)`](/$),
+- [`\mathbb{F}_{p^6} = \mathbb{F}_{p^2}[v]/(v^3 - \xi)`](/$),
 where [`\xi \in \mathbb{F}_{p^2}`](/$) is non-cube
 - [`\mathbb{F}_{p^{12}} = \mathbb{F}_{p^6}[w]/(w^2 - \zeta)`](/$), where 
 [`\zeta \in \mathbb{F}_{p^6}`](/$) is non-square
@@ -95,7 +95,7 @@ the [`m`](/$)-th cyclotomic subgroup of [`\mathbb{F}_{p^k}^*`](/$) as the set of
 whose order divides [`m`](/$):
 
 ```=mathtex
-\mu_m(\mathbb{F}_{p^k}) = { x \in \mathbb{F}_{p^k} \mid x^m = 1}
+\mu_m(\mathbb{F}_{p^k}) := \{ x \in \mathbb{F}_{p^k}^* \mid x^m = 1 \}
 ```
 
 These are the [`m`](/$)**-th roots of unity** in the field. If [`m \mid p^k - 1`](/$), 
@@ -103,7 +103,7 @@ then this set forms a **cyclic subgroup of order** [`m`](/$).
 
 Applying this idea to pairings:
 
-Suppose [`E \mathbin{/} \mathbb{F}_p`](/$) is an elliptic curve and [`r`](/$) is a large prime
+Suppose [`E / \mathbb{F}_p`](/$) is an elliptic curve and [`r`](/$) is a large prime
 dividing the curve order. The **embedding degree** [`k`](/$) is the smallest integer
 such that [`r \mid p^k - 1`](/$). This means that the curve's group of [`r`](/$)**-torsion**
 points can be paired with a multiplicative subgroup [`\mathbb{F}_{p^k}^*`](/$) of order [`r`](/$).
@@ -112,7 +112,7 @@ So we often consider the [`r`](/$)**-torsion subgroup** of [`\mathbb{F}_{p^{12}}
 which lies in the [`r`](/$)**-th cyclotomic subgroup**:
 
 ```=mathtex
-\mu_r(\mathbb{F}_p^{12}) = { x \in \mathbb{F}_p^{12} \mid x^r = 1}
+\mu_r(\mathbb{F}_{p^{12}}) := \{ x \in \mathbb{F}_{p^{12}}: \mid x^r = 1 \}
 ```
 
 This subgroup lies inside of the **12-th cyclotomic subgroup** 
