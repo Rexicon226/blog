@@ -1,9 +1,9 @@
 ---
-.title = "Notes and Stuff",
-.date = @date("2024-08-17T00:00:00"),
+.title = "Fast inversion on Cyclotomic Groups",
+.date = @date("2025-05-28T00:00:00"),
 .author = "David Rubin",
 .layout = "post.shtml",
-.draft = false,
+.draft = true,
 --- 
 
 

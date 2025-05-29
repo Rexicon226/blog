@@ -234,20 +234,18 @@ which is *still* hard. This becomes what's called the
 [computational Diffie-Hellman problem](https://en.wikipedia.org/wiki/Computational_Diffie%E2%80%93Hellman_assumption)
 (CDH).
 
-### [Example of Vulnerable Pedersen Commitment]($section.id('pedersen_vulnerability'))
+---
 
-Let's look at what would happen if you *did* know the 
-discrete log between [`H`](/$) and [`G`](/$), with a real-number
-example. This could vulnerabilities such as double-spending, value forgery,
-cheating ZKPs, breaking fairness in auctions or voting,
-and cause issues anywhere where Pedersen Commitments
-are used. 
+### [Example of knowing the discrete log between H and G]($section.id('pedersen_vulnerability'))
+
+Let's look at what would happen if you *did* know the relationship, with a real-number
+example:
 
 We'll define the group [`\mathbb{G}`](/$) as [`\mathbb{Z}_{101}^\times`](/$). The modulo
 of the group is 101. A generator of this multiplicative cyclic group is 2.
 
-Now let's define:
-- [`a = 13`](/$), which will be the coefficient between [`H`](/$) and [`G`](/$)
+Now let's suppose:
+- [`a = 13`](/$). [`a`](/$) the coefficient between [`H`](/$) and [`G`](/$)
 - [`H = G^a = 2^{13} \bmod 101 = 11`](/$)
 
 We'll commit to [`x = 42`](/$) and [`r = 7`](/$). Remember, the prover has control
@@ -258,26 +256,23 @@ the numbers used weren't actually random.
 \begin{align}
 x = 42 \\
 r = 7 \\
-C = G^x \cdot H^r \bmod p = 35
+C = G^x \cdot H^r \bmod p
 \end{align}
 ```
 
-We can easily double check the value of [`C`](/$) in this example,
-simply compute [`(2^{42} * 11^7) \bmod 101`](/$).
+[`C`](/$) is `35` in our example, you can do the math yourself to check, 
+[`(2^{42} * 11^7) \bmod 101`](/$).
 
-Now to perform an attack, the prover wants to find another pair [`(x', r')`](/$) 
-that opens the same commitment.
+Now suppose an attacker knows [`a = 13`](/$), so [`H = G^{13}`](/$). Then they 
+can try to find another pair [`(x', r')`](/$) that opens the same commitment:
 
-By substituting and simplifying, we can see that the value for the commitment
-becomes a single power of [`G`](/$) once we know the discrete log ([`a`](/$)):
+Now suppose an attacker wants to find another pair 
+[`(x', r')`](/$) that opens the same commitment:
+
+We know:
 
 ```=mathtex
-\begin{align}
-H = G^a \\
-C = G^x \cdot H^r  \\
-C = G^x \cdot (G^a)^r \\
-C = G^{x + 13r} \\
-\end{align}
+C = G^x \cdot H^r = G^x \cdot G^{13r} = G^{x + 13r}
 ```
 
 So the attack sees:
@@ -288,8 +283,7 @@ C = G^{x + 13r} = G^z
 
 for some [`z = x + 13r`](/$)
 
-Since the prover knows [`z`](/$), they can just pick any 
-[`x'`](/$), and solve for [`r'`](/$):
+Since they know [`z`](/$), they can just pick any [`x'`](/$), and solve for [`r'`](/$):
 
 ```=mathtex
 z = x' + 13r' \Rightarrow r' = (z - x') \cdot 13^{-1} \bmod 100
@@ -299,26 +293,28 @@ z = x' + 13r' \Rightarrow r' = (z - x') \cdot 13^{-1} \bmod 100
 Let's try:
 
 - [`x' = 30`](/$)
-- [`z = 30 + 13 * 7 = 133`](/$)
-- [`a^{-1} = 13^{-1} \bmod 100 = 77`](/$)
-- [`r' = (133 - 30) * 77 \bmod 100 = 31`](/$)
+- [`z = 30 + 13 * 7 = 133 \bmod 101 = 33`](/$)
+- [`a^{-1} = 13^{-1} \bmod 101 = 77`](/$)
+- [`r' = (33 - 30) * 77 \bmod 100 = 31`](/$)
 
-and then finally, the faked commitment:
+and then finally, the fake commitment:
 
 ```=mathtex
 \begin{align}
-C = G^{x'} \cdot H^{r'} \bmod 101 \\
-C = G^{30} \cdot H^{31} \bmod 101 \\
+C' = G^{x'} \cdot H^{r'} \bmod 101 \\
+C' = 35 = C
 \end{align}
 ```
 
-Now we have an opening ([`x'`](/$) and [`r'`](/$)) which **falsely claims**
-we committed to the value [`30`](/$), even though the original commitment
-was to [`42`](/$).
+Now the to verifier, who only receives a commitment, 
+they have no way of knowing that it has been faked.
 
-This means a malicious user can claim to have committed 
-to one value (e.g., their true balance), but then reuse the same 
-commitment to prove a different value, thereby cheating the system.
+This could enable double-spending, value forgery,
+cheating ZKPs, breaking fairness in auctions or voting,
+and generally speaking anywhere were Pedersen Commitments
+are used.
+
+
 
 ### [Homomorphism]($section.id('homomorphism'))
 
