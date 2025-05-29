@@ -239,7 +239,7 @@ which is *still* hard. This becomes what's called the
 Let's look at what would happen if you *did* know the 
 discrete log between [`H`](/$) and [`G`](/$), with a real-number
 example. This could enable vulnerabilities such as double-spending, value forgery,
-cheating ZKPs, breaking fairness in auctions or voting,
+cheating zero-knowledge proofs, breaking fairness in auctions or voting,
 and cause issues anywhere where Pedersen Commitments
 are used. 
 
