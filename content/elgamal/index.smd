@@ -36,7 +36,7 @@ Imagine you have a number [`g`](/$), and you start raising it to powers - modulo
 number [`p`](/$).
 
 ```=mathtex
-g^0 mod p, g^1 mod p, g^2 mod p, ..., g^{n - 1} mod p
+g^0 \bmod p, g^1 \bmod p, g^2 \bmod p, ..., g^{n - 1} \bmod p
 ```
 
 Eventually, due to the wrapping nature of modular arithmetic, the results loop
@@ -58,12 +58,12 @@ where `n` is the size of the group. All powers are computed modulo some number,
 usually a prime.
 
 If you're working with integers modulo a prime [`p`](/$), the group 
-[`\mathbb{Z}_p^* = \{1, 2, 3, ..., p - 1\}`](/$) is a **multiplicative
-cyclic group** of order `p - 1`. Some number [`g \in \mathbb{Z}_p^*`](/$)
+[`\mathbb{Z}_p^\times = \{1, 2, 3, ..., p - 1\}`](/$) is a **multiplicative
+cyclic group** of order `p - 1`. Some number [`g \in \mathbb{Z}_p^\times`](/$)
 is a **generator** if:
 
 ```=mathtex
-\{g^0 mod p, g^1 mod p, g^2 mod p, ..., g^{p - 1} mod p\} = \mathbb{Z}_p^*
+\{g^0 \bmod p, g^1 \bmod p, g^2 \bmod p, ..., g^{p - 1} \bmod p\} = \mathbb{Z}_p^\times
 ```
 
 This means that just by knowing [`g`](/$), you can reach any number in the group by raising
@@ -73,7 +73,7 @@ This property is important for the concepts we're exploring in this post.
 Raising [`g`](/$) to a power [`x`](/$) is **easy**:
 
 ```=mathtex
-y = g^x mod p
+y = g^x \bmod p
 ```
 
 But given [`y`](/$), trying to figure out [`x`](/$) is **hard**.
@@ -103,7 +103,7 @@ I've mentioned DLP a few times now, but let's take a moment to understand what i
 so important about it. At the heart of many cryptographic systems is one 
 simple question:
 
-> If I give you [`y = g^x mod p`](/$), can you figure out what [`x`](/$) is?
+> If I give you [`y = g^x \bmod p`](/$), can you figure out what [`x`](/$) is?
 
 In everyday math, this would be like solving:
 
@@ -114,7 +114,7 @@ y = g^x \Rightarrow x = log_g(y)
 But in **modular arithmetic**, logarithms behave very differently. Given:
 
 ```=mathtex
-y = g^x mod p
+y = g^x \bmod p
 ```
 
 There is no shortcut for recovering [`x`](/$), for a large enough [`p`](/$), 
@@ -142,8 +142,8 @@ the same group rules. That is, if you take any two elements from the subgroup
 and multiply them together, you stay within the subgroup.
 
 For example, suppose you're working with the multiplicative group
-[`\mathbb{Z}_p^*`](/$). A **subgroup** might be a smaller set of numbers
-within [`\mathbb{Z}_p^*`](/$) that also loop around nicely when you raise
+[`\mathbb{Z}_p^\times`](/$). A **subgroup** might be a smaller set of numbers
+within [`\mathbb{Z}_p^\times`](/$) that also loop around nicely when you raise
 them to powers. Every subgroup has a **generator** - 
 just like with the full group - and an **order**.
 
@@ -190,30 +190,35 @@ but it plays the same role.
 ### [Going through the math]($section.id('pedersen_math'))
 
 Now let's take a look at Pedersen commitments from a mathematical point of 
-view. The magic of this scheme comes from using a group with **two generators**.
+view. The magic of this scheme comes from using a second element to mask
+away the first one.
 
 A Pedersen commitment to a value *m* (the number you want to **commit** to) is 
 computed as:
 
 ```=mathtex
-C = g^m \cdot h^r mod p
+C = G^m \cdot H^r \bmod p
 ```
 
-- where [`g`](/$) and [`h`](/$) are the **generators** of a group
+- [`G`](/$) is a **generator** of the group
+- [`H`](/$) is an **element** of the group. It may be a generator, however
+it's important that it is chosen independently of [`G`](/$). It's common to
+apply a hash such as SHA-3 to [`G`](/$), so that the relationship is harder
+to follow.
 - [`r`](/$) is a random value (called the **blinding factor**), chosen to hide [`m`](/$)
 - [`p`](/$) is a large prime, and the group is typically a multiplicative subgroup of 
-[`\mathbb{Z}_p^*`](/$) or a point group on an elliptic curve
+[`\mathbb{Z}_p^\times`](/$) or a point group on an elliptic curve
 
 The commitment [`C`](/$) looks random to anyone who doesn't know both 
 [`m`](/$) and [`r`](/$), but you can "open" the commitment later by 
 revealing those two values.
 
-Now you may be wondering, why do we need **two** generators? Shouldn't the 
+Now you may be wondering, why do we need **two** elements? Shouldn't the 
 Discrete Log Problem be enough to mask the value of the commitment if we just
 used:
 
 ```=mathtex
-C = g^m mod p 
+C = G^m \bmod p 
 ```
 
 The issue is that [`m`](/$) is a user-defined value, and could be anything. Commonly
@@ -223,11 +228,97 @@ account balance, which would lead to brute-force attacks being easy.
 A second generator point "masks" [`m`](/$) behind the randomness of [`r`](/$).
 Now, even if [`m`](/$) is 0, 1, 2, or some small-ish number, the commitment
 looks random unless you know what [`r`](/$) is. Thanks to the unknown
-discrete log between [`g`](/$) and [`h`](/$), there's no way to remove 
+discrete log between [`G`](/$) and [`H`](/$), there's no way to remove 
 the blinding factor from the commitment without solving the **two DLPs at once**,
 which is *still* hard. This becomes what's called the 
 [computational Diffie-Hellman problem](https://en.wikipedia.org/wiki/Computational_Diffie%E2%80%93Hellman_assumption)
 (CDH).
+
+### [Example of Vulnerable Pedersen Commitment]($section.id('pedersen_vulnerability'))
+
+Let's look at what would happen if you *did* know the 
+discrete log between [`H`](/$) and [`G`](/$), with a real-number
+example. This could vulnerabilities such as double-spending, value forgery,
+cheating ZKPs, breaking fairness in auctions or voting,
+and cause issues anywhere where Pedersen Commitments
+are used. 
+
+We'll define the group [`\mathbb{G}`](/$) as [`\mathbb{Z}_{101}^\times`](/$). The modulo
+of the group is 101. A generator of this multiplicative cyclic group is 2.
+
+Now let's define:
+- [`a = 13`](/$), which will be the coefficient between [`H`](/$) and [`G`](/$)
+- [`H = G^a = 2^{13} \bmod 101 = 11`](/$)
+
+We'll commit to [`x = 42`](/$) and [`r = 7`](/$). Remember, the prover has control
+over the constants used to create the proof, so the verifier wouldn't know if
+the numbers used weren't actually random.
+
+```=mathtex
+\begin{align}
+x = 42 \\
+r = 7 \\
+C = G^x \cdot H^r \bmod p = 35
+\end{align}
+```
+
+We can easily double check the value of [`C`](/$) in this example,
+simply compute [`(2^{42} * 11^7) \bmod 101`](/$).
+
+Now to perform an attack, the prover wants to find another pair [`(x', r')`](/$) 
+that opens the same commitment.
+
+By substituting and simplifying, we can see that the value for the commitment
+becomes a single power of [`G`](/$) once we know the discrete log ([`a`](/$)):
+
+```=mathtex
+\begin{align}
+H = G^a \\
+C = G^x \cdot H^r  \\
+C = G^x \cdot (G^a)^r \\
+C = G^{x + 13r} \\
+\end{align}
+```
+
+So the attack sees:
+
+```=mathtex
+C = G^{x + 13r} = G^z
+```
+
+for some [`z = x + 13r`](/$)
+
+Since the prover knows [`z`](/$), they can just pick any 
+[`x'`](/$), and solve for [`r'`](/$):
+
+```=mathtex
+z = x' + 13r' \Rightarrow r' = (z - x') \cdot 13^{-1} \bmod 100
+```
+(since the order of the multiplicative group is `p - 1`, we use 100 here)
+
+Let's try:
+
+- [`x' = 30`](/$)
+- [`z = 30 + 13 * 7 = 133`](/$)
+- [`a^{-1} = 13^{-1} \bmod 100 = 77`](/$)
+- [`r' = (133 - 30) * 77 \bmod 100 = 31`](/$)
+
+and then finally, the faked commitment:
+
+```=mathtex
+\begin{align}
+C = G^{x'} \cdot H^{r'} \bmod 101 \\
+C = G^{30} \cdot H^{31} \bmod 101 \\
+\end{align}
+```
+
+Now we have an opening ([`x'`](/$) and [`r'`](/$)) which **falsely claims**
+we committed to the value [`30`](/$), even though the original commitment
+was to [`42`](/$).
+
+This means a malicious user can claim to have committed 
+to one value (e.g., their true balance), but then reuse the same 
+commitment to prove a different value, thereby cheating the system.
 
 ### [Homomorphism]($section.id('homomorphism'))
 
@@ -247,7 +338,7 @@ Then, applying the property of additive [`\Rightarrow`](/$)
 multiplicative homomorphism:
 
 ```=mathtex
-C_1 \cdot C_2 = g^{m_1 + m_2} \cdot h^{r_1 + r_2}
+C_1 \cdot C_2 = G^{m_1 + m_2} \cdot H^{r_1 + r_2}
 ```
 
 So [`C_1 \cdot C_2`](/$) is a valid commitment to [`m_1 + m_2`](/$) using
@@ -263,15 +354,15 @@ committed outputs in a confidential transaction.
 
 The **binding** property depends on a very important assumption:
 
-> Given a commitment [`C = g^m \cdot h^r`](/$), it should be *infeasible*
+> Given a commitment [`C = G^m \cdot H^r`](/$), it should be *infeasible*
 to find two different pairs [`(m_1, r_1)`](/$) and [`(m_2, r_2)`](/$)
 such that:
 
 ```=mathtex
-g^{m_1} \cdot h^{r_1} = g^{m_2} \cdot h^{r_2}
+G^{m_1} \cdot H^{r_1} = G^{m_2} \cdot H^{r_2}
 ```
 
-Unless you know the discrete log between [`g`](/$) and [`h`](/$), you 
+Unless you know the discrete log between [`G`](/$) and [`H`](/$), you 
 cannot find two valid openings. And without the ability to find
 another valid opening after creating the first one, you're unable to 
 later claim you committed to something else.
@@ -330,7 +421,7 @@ but only by the intended recipient.
 
 It uses the same kind of group:
 
-- A generator [`g`](/$)
+- A generator [`G`](/$)
 - A secret key [`x`](/$)
 - A public key [`pk = g^x`](/$)
 
@@ -346,12 +437,12 @@ If you understand Pedersen commitments, ElGamal encryption will feel very simila
 |            | Pedersen Commitment                    | ElGamal Encryption               |
 | ---------- | -------------------------------------- | -------------------------------  |
 | Purpose    | Lock in a value                        | Encrypt a value                  |
-| Formula    | [`C = g^m \cdot h^r`](/$)              | [`ct = (g^r, pk^r \cdot m)`](/$) |
+| Formula    | [`C = G^m \cdot H^r`](/$)              | [`ct = (G^r, pk^r \cdot m)`](/$) |
 | Randomness | [`r`](/$) blinding factor              | [`r`](/$) encrpytion randomness  |
 | Security   | Hiding via randomness, binding via DLP | Indistinguishability via DLP     |
 
 Both use **exponentiation in a cyclic group** - either a multiplicative group like 
-[`\mathbb{Z}_p^*`](/$), or an elliptic curve group - both rely on the assumption
+[`\mathbb{Z}_p^\times`](/$), or an elliptic curve group - both rely on the assumption
 that DLP is hard in that group.
 
 When used with elliptic curves (EC), ElGamal simply switches from exponentiation [`g^x`](/$)
@@ -369,16 +460,16 @@ Let's quickly go through an example of the decryption process for ElGamal
 to get a better understanding of the algorithm overall.
 
 Let's assume you're working in a group [`\mathbb{G}`](/$) with generator
-[`g`](/$).
+[`G`](/$).
 
 Quick note: [`\overset{\$}{\leftarrow}`](/$) means "a random scalar uniformly sampled
 from the set".
 
-- Private key: [`x \overset{\$}{\leftarrow} \mathbb{Z}_{p - 1}^*`](/$).
+- Private key: [`x \overset{\$}{\leftarrow} \mathbb{Z}_{p - 1}^\times`](/$).
 It's important that [`p - 1`](/$) isn't included in the set, since there 
 wouldn't be much work for the adversary if your private key results
 in a public key equivalent to the generator.
-- Public key: [`h = g^x`](/$)
+- Public key: [`h = G^x`](/$)
 
 To encrypt a message [`m \in \mathbb{G}`](/$), the sender picks a random
 element [`r \overset{\$}{\leftarrow} \mathbb{Z}_p`](/$), and sends the ciphertext:
