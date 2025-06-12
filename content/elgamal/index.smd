@@ -250,22 +250,22 @@ Now let's define:
 - [`a = 13`](/$), which will be the coefficient between [`H`](/$) and [`G`](/$)
 - [`H = G^a = 2^{13} \bmod 101 = 11`](/$)
 
-We'll commit to [`x = 42`](/$) and [`r = 7`](/$). Remember, the prover has control
+We'll commit to [`m = 42`](/$) and [`r = 7`](/$). Remember, the prover has control
 over the constants used to create the proof, so the verifier wouldn't know if
 the numbers used weren't actually random.
 
 ```=mathtex
 \begin{align}
-x = 42 \\
+m = 42 \\
 r = 7 \\
-C = G^x \cdot H^r \bmod p = 35
+C = G^m \cdot H^r \bmod p = 35
 \end{align}
 ```
 
 We can easily double check the value of [`C`](/$) in this example,
 simply compute [`(2^{42} * 11^7) \bmod 101`](/$).
 
-Now to perform an attack, the prover wants to find another pair [`(x', r')`](/$) 
+Now to perform an attack, the prover wants to find another pair [`(m', r')`](/$) 
 that opens the same commitment.
 
 By substituting and simplifying, we can see that the value for the commitment
@@ -274,31 +274,31 @@ becomes a single power of [`G`](/$) once we know the discrete log ([`a`](/$)):
 ```=mathtex
 \begin{align}
 H = G^a \\
-C = G^x \cdot H^r  \\
-C = G^x \cdot (G^a)^r \\
-C = G^{x + 13r} \\
+C = G^m \cdot H^r  \\
+C = G^m \cdot (G^a)^r \\
+C = G^{m + 13r} \\
 \end{align}
 ```
 
 So the attack sees:
 
 ```=mathtex
-C = G^{x + 13r} = G^z
+C = G^{m + 13r} = G^z
 ```
 
-for some [`z = x + 13r`](/$)
+for some [`z = m + 13r`](/$)
 
 Since the prover knows [`z`](/$), they can just pick any 
-[`x'`](/$), and solve for [`r'`](/$):
+[`m'`](/$), and solve for [`r'`](/$):
 
 ```=mathtex
-z = x' + 13r' \Rightarrow r' = (z - x') \cdot 13^{-1} \bmod 100
+z = m' + 13r' \Rightarrow r' = (z - m') \cdot 13^{-1} \bmod 100
 ```
 (since the order of the multiplicative group is `p - 1`, we use 100 here)
 
 Let's try:
 
-- [`x' = 30`](/$)
+- [`m' = 30`](/$)
 - [`z = 30 + 13 * 7 = 133`](/$)
 - [`a^{-1} = 13^{-1} \bmod 100 = 77`](/$)
 - [`r' = (133 - 30) * 77 \bmod 100 = 31`](/$)
@@ -307,12 +307,12 @@ and then finally, the faked commitment:
 
 ```=mathtex
 \begin{align}
-C = G^{x'} \cdot H^{r'} \bmod 101 \\
+C = G^{m'} \cdot H^{r'} \bmod 101 \\
 C = G^{30} \cdot H^{31} \bmod 101 \\
 \end{align}
 ```
 
-Now we have an opening ([`x'`](/$) and [`r'`](/$)) which **falsely claims**
+Now we have an opening ([`m'`](/$) and [`r'`](/$)) which **falsely claims**
 we committed to the value [`30`](/$), even though the original commitment
 was to [`42`](/$).
 
