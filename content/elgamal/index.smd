@@ -234,7 +234,7 @@ discrete log between [`H`](/$) and [`G`](/$), with a real-number
 example. This could enable vulnerabilities such as double-spending, value forgery,
 cheating zero-knowledge proofs, breaking fairness in auctions or voting,
 and cause issues anywhere where Pedersen Commitments
-are used. f
+are used.
 
 We'll define the group [`\mathbb{G}`](/$) as [`\mathbb{Z}_{101}^\times`](/$). The modulo
 of the group is 101. A generator of this multiplicative cyclic group is 2.
