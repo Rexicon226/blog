@@ -1,0 +1,559 @@
+---
+.title = "Building up to understand Pairings",
+.date = @date("2026-01-06T00:00:00"),
+.author = "David Rubin",
+.layout = "post.shtml",
+.draft = false,
+--- 
+
+The goal of this page is to build up knowledge from a somewhat undergraduate
+level, and arrive at the concepts needed to understand and intuite the math
+surrounding some of the more complex cryptographic concepts.
+
+# Glossary
+
+## [Field]($section.id('field'))
+
+A **field** is a [set](https://en.wikipedia.org/wiki/Set_(mathematics)) where
+can you add, subtract, multiply, and divide (except by zero), and all of the 
+usual algebraic rules work.
+
+Example:
+- Ration numbers [`\mathbb{Q}`](/$)
+- Real numbers [`\mathbb{R}`](/$)
+- Finite fields such as [`\mathbb{F}_5 = \{0, 1, 2, 3, 4\}`](/$), with 
+addition and multipliction done `mod 5`.
+
+When we say "finite field" we mean there are finitely many elements.
+For every prime number `p`, there's a finite field with exactly `p` elements,
+written [`\mathbb{F}_p`](/$).
+
+---
+
+## [Group]($section.id('group'))
+
+A **group** is a simpler algebraic structure - you only have one operation
+(like multiplication), and:
+
+1. You can combine any two elements.
+2. The operation is associative.
+3. There's an identity element. An element where `x op identity = x`.
+4. Every element has an inverse.
+
+For example, the nonzero elements of [`\mathbb{F}_p`](/$), 
+written [`\mathbb{F}_p^*`](/$), form a multiplicative group under modular multiplication.
+
+[`\mathbb{F}_5^* = \{1, 2, 3, 4\}`](/$) is a cyclic group of order 4.
+
+---
+
+## [Cyclic Group]($section.id('cyclic_group'))
+
+A [group](#group) is **cyclic** if there exists one element `g` (called a generator) such
+that every element of the group can be written as a power of `g`.
+
+In [`\mathbb{F}_5^*`](/$), for example, `g = 2` works as the generator because,
+
+```=mathtex
+\begin{align*}
+2^1 \bmod 5 \equiv 2 \\
+2^2 \bmod 5 \equiv 4 \\
+2^3 \bmod 5 \equiv 3 \\
+2^4 \bmod 5 \equiv 1
+\end{align*}
+```
+
+All elements in [`\{1, 2, 3, 4\}`](/$) can be expressed as a power of 2, mod 5.
+So the group is *cyclc*.
+
+---
+
+## [Order of an Element]($section.id('order'))
+
+The **order** of an element [`x`](/$) in a [group](#group) is the 
+smallest positive integer [`m`](/$) such that [`x^m = 1`](/$).
+
+For instance, in [`\mathbb{F}_5^*`](/$), the order of 2 is 4, since [`2^4 \equiv 1 \bmod 5`](/$).
+
+---
+
+## [Roots of Unity]($section.id('roots_of_unity'))
+
+Elements whose power equal `1` are called *roots of unity*.
+
+The *m-th roots of unity* are all elements [`x`](/$) such that [`x^m = 1`](/$).
+
+In [`\mathbb{F}_5^*`](/$), the 4-th roots of unity are `{1, 2, 3, 4}`, since each
+satisfies [`x^4 = 1 \bmod 5`](/$).
+
+---
+
+## [Subgroup]($section.id('subgroup'))
+
+A **subgroup** is a smaller [group](#group) that lives inside of a larger
+group and follows the same rules.
+
+Formally, if [`(\mathbb{G}, \cdot)`](/$) is a group (under multiplication),
+a subset [`\mathbb{H} \subseteq \mathbb{G}`](/$) is a subgroup if:
+
+1. The operation of [`\mathbb{G}`](/$) keeps you inside [`\mathbb{H}`](/$)
+    - For all [`a, b \in \mathbb{H}`](/$), [`a \text{ op } b \in \mathbb{H}`](/$).
+2. The identity of [`\mathbb{G}`](/$) is in [`\mathbb{H}`](/$).
+3. Every element of [`\mathbb{H}`](/$) has an inverse, which is also in [`\mathbb{H}`](/$).
+
+For example let's look at [`\mathbb{F}_7^* = \{1, 2, 3, 4, 5, 6\}`](/$). This group
+has order 6.
+
+We can see that `3` is a generator of this group,
+
+```=mathtex
+\begin{align*}
+3^1 \bmod 7 \equiv 3 \\
+3^2 \bmod 7 \equiv 2 \\
+3^3 \bmod 7 \equiv 6 \\
+3^4 \bmod 7 \equiv 4 \\
+3^5 \bmod 7 \equiv 5 \\
+3^6 \bmod 7 \equiv 1
+\end{align*}
+```
+
+So [`\langle3\rangle = \{1, 2, 3, 4, 5, 6\}`](/$). This means 3 is a generator
+of the whole group [`\mathbb{F}_7^*`](/$), making it a [cyclic group](#cyclic_group).
+
+We can look at a *subset* of this group, when we use 6 instead of 3.
+
+```=mathtex
+\begin{align*}
+6^1 \bmod 7 \equiv 6 \\
+6^2 \bmod 7 \equiv 1 \\
+6^3 \bmod 7 \equiv 6 \\
+...
+\end{align*}
+```
+
+When raising 6 to higher and higher powers, it will *cycle* between
+6 and 1. This subset, [`\{1, 6\}`](/$), satisfies all subgroup rules:
+
+- `1` is the identity.
+- It is closed under multiplication.
+- Inverses exist, [`6^{-1} = 6`](/$).
+
+Interestingly, the order of the subgroup (2 in this case) always divides the order
+of the whole group. This shows off 
+[Lagrange's theorem](https://en.wikipedia.org/wiki/Lagrange%27s_theorem_(group_theory)), 
+which states:
+
+> The order of a subgroup divides the order of the whole group.
+
+---
+
+## [Finite Field Extensions]($section.id('finite_field_extensions'))
+
+Finite fields are fields with a finite number of elements. Every finite field
+has an order (size) [`q`](/$).
+
+We can generalize finite field extensions by starting not from a prime field 
+[`\mathbb{F}_p`](/$), but from any finite field [`\mathbb{F}_q`](/$) of
+order [`q = p^n`](/$), where [`p`](/$) is a prime, and [`n`](/$) is a positive
+integer.
+
+To construction a larger field [`\mathbb{F}_{q^n}`](/$), we adjoin a new element 
+[`x`](/$) that satisfies an irreducible polynomial of degree [`n`](/$) over 
+[`\mathbb{F}_q`](/$).
+
+Formally,
+```=mathtex
+\mathbb{F}_{q^n} = \mathbb{F}_q[x] / (f(x))
+```
+where [`f(x)`](/$) is irreducible over [`\mathbb{F}_q`](/$).
+
+Every element of [`\mathbb{F}_{q^n}`](/$) can be written as a polynomial of
+degree less than [`n`](/$) with coefficients in [`\mathbb{F}_q`](/$):
+
+```=mathtex
+a_0 + a_1 x + a_2 x^2 + \dots + a_{n-1}x^{n-1}, \quad a_i \in \mathbb{F}_q
+```
+
+This way, [`\mathbb{F}_{q^n}`](/$) is an *n*-dimensional vector space over
+[`\mathbb{F}_q`](/$).
+
+## [Field Towers]($section.id('field_towers'))
+
+Field extensions can themselves be used as bases for further extensions.
+This leads us to the idea of **field towers**.
+
+Let's start with a base field [`\mathbb{F}_p`](/$), given some prime [`p`](/$),
+and we'll build up to [`\mathbb{F}_{p^{12}}`](/$).
+
+By setting [`q = p`](/$) and [`n = 2`](/$), we can extend the base field to 
+[`\mathbb{F}_{p^2}`](/$):
+
+```=mathtex
+\mathbb{F}_{p^2} = \mathbb{F}_p[u] / (u^2 + 1)
+```
+
+Here [`u`](/$) is a root of the irreducible polynomial [`f(u) = u^2 + 1`](/$) 
+over [`\mathbb{F}_p`](/$). In this field, multiplication is done modulo
+[`u^2 + 1 = 0`](/$), so we have the following relation:
+
+```=mathtex
+u^2 \equiv -1 \pmod{p}
+```
+
+Each element of [`\mathbb{F}_{p^2}`](/$) can be written as:
+
+```=mathtex
+a + b u, \quad a, b \in \mathbb{F}_p
+```
+
+This only works if [`-1 \pmod{p}`](/$) is a quadratic residue, but for our
+example we can just assume it is. How to determine whether it is and what
+it implies on other aspects of elliptic-curve cryptography is a bit outside
+of the scope of this post.
+
+Now to extend [`\mathbb{F}_{p^2}`](/$) by degree 3 to get [`\mathbb{F}_{p^6}`](/$).
+We define:
+
+```=mathtex
+\mathbb{F}_{p^6} = \mathbb{F}_{p^2}[v] / (v^3 - \xi)
+```
+
+Here [`\xi`](/$) is a quadratic non-residue in [`\mathbb{F}_{p^2}`](/$) - that is,
+there's no element [`x \in \mathbb{F}_{p^2}`](/$) such that [`x^2 = \xi`](/$).
+This ensures that [`v^3 - \xi`](/$) is irreducible.
+
+Similar to the 2nd degree extension, arithemtic is performed modulo [`v^3 = \xi`](/$),
+giving the relation:
+
+```=mathtex
+v^3 \equiv \xi \pmod{u^2 + 1}
+```
+
+Each element of [`\mathbb{F}_{p^6}`](/$) can be written as:
+
+```=mathtex
+(a_0 + a_1 v + a_2 v^2), \quad a_i \in \mathbb{F}_{p^2}
+```
+
+And finally we land at the final extension, by degree 2, to get [`\mathbb{F}_{p^{12}}`](/$).
+The math looks nearly the same as our first quadratic extension:
+
+```=mathtex
+\mathbb{F}_{p^{12}} = \mathbb{F}_{p^6}[w] / (w^2 - v)
+```
+
+Here [`w`](/$) satifies [`w^2 = v`](/$), and since [`v`](/$) was a cubic
+non-residue in [`\mathbb{F}_{p^2}`](/$), this final extension is also irreducible.
+
+So we have the defining residue:
+
+```=mathtex
+w^2 \equiv v \pmod{v^3 - \xi}
+```
+
+And each element of [`\mathbb{F}_{p^{12}}`](/$) can be expressed as:
+
+```=mathtex
+(b_0 + b_1 w), \quad b_i \in \mathbb{F}_{p^6}
+```
+
+At each layer, the arithmetic re-uses the lower-level operations. For example,
+multiplication in [`\mathbb{F}_{p^{12}}`](/$) can be implemented using three
+multiplications in [`\mathbb{F}_{p^6}`](/$), which in turn reduce to operations
+in [`\mathbb{F}_{p^2}`](/$).
+
+---
+
+
+TODO: cleanu pthe whole field extensions/field towers section
+
+and extend it by degree 2, to get [`\mathbb{F}_{p^2}`](/$).
+
+```=mathtex
+\mathbb{F}_q
+```
+
+Start with a base field [`\mathbb{F}_q`](/$), where [`q = p^1`](/$) 
+and extend it by some degree [`n`](/$) to get:
+
+```=mathtex
+\mathbb{F}_q = \mathbb{F}_{p^n}
+```
+
+Now we can further extend [`\mathbb{F}_q`](/$) by adjoining new roots of
+irreducible polynomials. For example, we can build [`\mathbb{F}_{q^3}`](/$)
+(a cubic extension of [`\mathbb{F}_q`](/$)):
+
+```=mathtex
+\mathbb{F}_{q^3} = \mathbb{F}_q[v] / (v^3 - \xi)
+```
+
+where [`\xi \in \mathbb{F}_q`](/$) is chosen so that [`v^3 - \xi`](/$) is
+irreducible.
+
+If [`q = p^2`](/$), this means:
+
+```=mathtex
+\mathbb{F}_{p^6} = \mathbb{F}_{p^2}[v]/(v^3 - \xi)
+```
+and so we've built [`\mathbb{F}_{p^6}`](/$) in two steps - first a quadratic
+extension, then a cubic one.
+
+Finally, in our example, we can extend again by degree 2 to reach 
+[`\mathbb{F}_{p^{12}}`](/$):
+
+```=mathtex
+\mathbb{F}_{p^{12}} = \mathbb{F}_{p^6}[w]/(w^2 - \zeta)
+```
+
+where [`\zeta \in \mathbb{F}_{p^6}`](/$) is non-square.
+
+---
+
+### But why build fields this way?
+
+This layered approach makes arithmetic much faster. Operations in 
+[`\mathbb{F}_{p^{12}}`](/$) can be broken down recursively into smaller and
+simpler ones - first in [`\mathbb{F}_{p^6}`](/$), then in [`\mathbb{F}_{p^2}`](/$),
+and finally in the base field [`\mathbb{F}_p`](/$).
+
+Pairing-based cryptography (like BLS12-381 and BN-254) uses these towers extensively:
+
+```=mathtex
+\mathbb{F}_p \subset \mathbb{F}_{p^2} \subset \mathbb{F}_{p^6} \subset \mathbb{F}_{p^{12}}.
+```
+
+Each layer corresponds to a carefully chosen polynomial that makes multiplication
+and inversion efficient, enabling practical computation of pairings.
+
+## [Multiplicative Group of a Field]($section.id('multiplicative_group'))
+
+For any finite field [`\mathbb{F}_{p^n}`](/$), the set of nonzero elements forms a 
+multiplicative group:
+
+```=mathtex
+\mathbb{F}_{p^n}^* = \mathbb{F}_{p^n} \setminus \{0\}
+```
+
+This group is [cyclic](#cyclic_group) and has order [`p^n - 1`](/$).
+
+
+## [Cyclotomic Subgroups]($section.id('cyclotomic_subgroups'))
+
+We can now talk about the cyclotomic subgroup!
+
+Given a finite field [`\mathbb{F}_{p^k}`](/$), the *m-th cyclotomic subgroup* is:
+
+```=mathtex
+\mu_m(\mathbb{F}_{p^k}) = \{ x \in \mathbb{F}_{p^k}^* \mid x^m = 1 \}
+```
+
+This can be a bit hard to read, so to paraphrase:
+
+We are saying that [`\mu_m(\mathbb{F}_{p^k})`](/$) is the set of elements
+of the [multiplicative group](#multiplicative_group) [`\mathbb{F}_{p^k}^*`](/$)
+whose m-th power equals 1. These are the [m-th roots of unity](#roots_of_unity) 
+that lie inside of the field [`\mathbb{F}_{p^k}`](/$).
+
+We can show that the set [`\{x \in G \mid x^m = 1\}`](/$) is a [subgroup](#subgroup)
+with a few simple reductions:
+
+1. Closure: Given our two elements `x` and `y`, if [`x^m = 1`](/$) and [`y^m = 1`](/$),
+then [`(xy)^m = {x^m}{y^m} = 1 \cdot 1 = 1`](/$).
+2. Identity: [`1^m = 1`](/$), so `1` is included.
+3. Inverses: if [`x^m = 1`](/$), then [`(x^{-1})^m = (x^m)^{-1} = 1^{-1} = 1`](/$).
+
+## [Pairings]($section.id('pairings'))
+
+Pairings are a bit tricky to understand, but they boil down to a very simple concept.
+
+Let's say we have three groups, [`G_1, G_2, G_T`](/$). [`G_1`](/$) and [`G_2`](/$)
+are abelian groups, in this case elliptic-curve groups. [`G_T`](/$) is a 
+[multiplicative group](#multiplicative_group), a subgroup of [`\mathbb{F}_{p^k}^*`](/$).
+
+A pairing is just a map that mixes two group elements and outputs a third element
+in another group:
+
+```=mathtex
+e : G_1 \times G_2 \rightarrow G_T
+```
+
+### [Bilinearity]($section.id('bilinear'))
+
+The pairing is **bilinear** if it satisfies:
+
+```=mathtex
+e(aP, bQ) = e(P, Q)^{ab} \quad \forall P \in G_1, Q \in G_2, a, b \in \mathbb{Z}
+```
+
+When showing bilinearity, we care about the behaviour of [`e`](/$) when 
+only one of the inputs changes (either [`P`](/$) or [`Q`](/$)).
+
+When we "fix" or "pin" one of the inputs, say [`P \in G_1`](/$), we get a
+map [`e_P(Q) \mapsto e(P, Q)`](/$). If this map satisfies the following:
+
+```=mathtex
+e_P(Q + Q') = e(P, Q + Q') = e(P, Q) \cdot e(P, Q')
+```
+
+then it is a "group homomorphism". When both [`e_P`](/$) and [`e_Q`](/$)
+have this property, we know the pairing [`e`](/$) is **bilinear**.
+
+### Non-degeneracy
+
+A pairing [`e : G_1 \times G_2 \rightarrow G_T`](/$) is non-degenerate if:
+
+```=mathtex
+e(P, Q) = 1, \quad \forall Q \in G_2 \Longrightarrow P = 0
+```
+
+> Given a pairing [`e`](/$), if [`P \neq 0`](/$), then there exists at least 
+one [`Q \in G_2`](/$) such that [`e(P, Q) \neq 1`](/$).
+
+When thinking about it intuitvely, every element is "seen" by the map. A degenerate
+pairing would allow a non-zero element in [`G_1`](/$) (or [`G_2`](/$)) to always
+produce the identity, which causes problems when applying pairings to cryptography.
+
+### Perfect Pairing
+
+A pairing is perfect if it's bilinear and non-generate in both directions. In other
+words, every non-zero element of one group produces a unique effect on the other
+group via the pairing. We can show that any change in one of the inputs will
+result in an measurable change in the output.
+
+Formally, fixing an element [`P \in G_1`](/$) gives a homomorphism [`e_P : G_2 \rightarrow G_T`](/$)
+defined by [`Q \mapsto e(P, Q)`](/$), as described in [bilinearity](#bilinear).
+
+Perfectness ensures that no two different [`P`](/$) produce the same homomorphism,
+and similarly for elements of [`G_2`](/$).
+
+
+### Building a Perfect Pairing from Scratch
+
+We can try constructing a perfect pairing from small, concrete groups.
+
+Let's start with a [cyclic](#cyclic_group) additive group:
+
+```=mathtex
+A = \mathbb{Z}/3\mathbb{Z} = \{0, 1, 2\}
+```
+
+where addition is done mod 3. This will be the "source" group in our pairing.
+
+We'll use the finite field [`F_7 = \{0, 1, 2, 3, 4, 5, 6\}`](/$) and take its 
+subgroup of [3rd roots of unity](#roots_of_unity):
+
+```=mathtex
+R = \mu_3(\mathbb{F}_7) = \{1, 2, 4\}
+```
+
+this will serve as our "target" group - the codomain of the pairing.
+
+A group homomorphism [`f : A \rightarrow R`](/$) is determinted entirely by
+the image of [`1 \in A`](/$). Because [`A`](/$) has order 3, we must have
+[`f(1)^3 = 1`](/$), so [`f(1)`](/$) can be any of the three elements of [`R`](/$).
+
+That gives us three homomorphisms:
+
+```=mathtex
+\begin{align*}
+f_0(b) &= 1^b \bmod 7 = 2^{0b} \bmod 7 \\
+f_1(b) &= 2^b \bmod 7 = 2^{1b} \bmod 7 \\
+f_2(b) &= 4^b \bmod 7 = 2^{2b} \bmod 7
+\end{align*}
+```
+
+These form the group [`Hom(A, R) = \{f_0, f_1, f_2\}`](/$), with multiplication
+defined pointwise:
+
+```=mathtex
+(f_i \cdot f_j)(b) = f_i(b)f_j(b)
+```
+
+This group is cyclic of order 3, generated by [`f_1`](/$).
+
+Afterwards, we define a map
+
+```=mathtex
+\phi : A \rightarrow Hom(A, R)
+```
+by
+```=mathtex
+\phi(a)(b) = 2^{ab} \bmod 7
+```
+
+And we can observe what it does:
+
+```=mathtex
+\begin{array}{c|ccc}
+a & \phi(a) \\ \hline
+0 & (b \mapsto 1) = f_0\\
+1 & (b \mapsto 2^b) = f_1\\
+2 & (b \mapsto 2^{2b}) = f_2\\
+\end{array}
+```
+
+It's easy to verify that [`\phi(a + a') = \phi(a)\phi(a')`](/$), and since both
+sides have three elements, [`\phi`](/$) is an isomorphism.
+
+This is exactly the setup we want for a perfect pairing, one group is an isomorphism
+to the dual of the other. Now we can define the pairing itself as the evaluation map:
+
+```=mathtex
+e(a, b) = \phi(a)(b) = 2^{ab} \bmod 7
+```
+That's our bilinear pairing
+```=mathtex
+e : A \times A \rightarrow R
+```
+
+And if we write out the full table of values:
+
+```=mathtex
+\begin{array}{c|ccc}
+e(a,b) & b=0 & b=1 & b=2 \\ \hline
+a=0 & 1 & 1 & 1\\
+a=1 & 1 & 2 & 4\\
+a=2 & 1 & 4 & 2\\
+\end{array}
+```
+
+For the additive group [`A`](/$) and multiplicative group [`R`](/$),
+
+```=mathtex
+e(a + a', b) = 2^{(a + a')b} = 2^{ab} \cdot 2^{{a'}b} = e(a, b)e(a', b)
+```
+
+So [`e`](/$) is bilinear.
+
+A degenerate pairing would have a non-zero [`b \in \{0, 1, 2\}`](/$) such 
+that [`e(a, b) = 1`](/$). However it's trivial to see that for an input 
+like [`1`](/$), we'd need [`e(a, 1) = 2^{a \cdot 1} = 2^a \equiv 1`](/$).
+However the only [`a \in \{0, 1, 2\}`](/$) satisfying [`2^a \equiv 1 \bmod 7`](/$)
+is [`a = 0`](/$). You can easily see this hold for [`b \equiv 2`](/$) as well.
+
+So the pairing is injective in its first argument, and by symmetry it's also
+injective in the second argument. This makes [`e`](/$) non-degernerate. Each
+non-zero element of [`A`](/$) produces a nontrivial homomoprhism into [`R`](/$).
+
+The map
+
+```=mathtex
+\begin{align*}
+A \rightarrow Hom(A, R) \\
+a \longmapsto (b \mapsto e(a, b))
+\end{align*}
+```
+
+is exactly our [`\phi`](/$), which we already proved is an isomorphism.
+
+This should confirm that [`e`](/$) is perfect, it gives a one-to-one relationship
+between elements of [`A`](/$) and the homomorphisms [`A \rightarrow R`](/$).
+
+In cryptographic cases, [`A`](/$) and [`R`](/$) are replaced with large 
+[cyclic subgroups](#cyclic_group) of elliptic curve groups and field 
+multiplicative groups, respectively.
+
+
+TODO: elaborate on the applications of pairings as an ending
+TODO: add a "next part, we'll discuss R1CS/QAPs,lagrange interp.
