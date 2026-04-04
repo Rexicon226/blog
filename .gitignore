@@ -1,1 +1,4 @@
 public/
+
+scripts/*.png
+scripts/.venv
