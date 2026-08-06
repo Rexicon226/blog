@@ -4,6 +4,9 @@
 .author = "David Rubin",
 .layout = "post.shtml",
 .draft = false,
+.custom = {
+    .unlisted = true,
+},
 ---
 
 

@@ -12,11 +12,13 @@
 <body id="body">
   <div>
     <h2>Blog post list</h2>
-    <div :loop="$page.subpages()">
-      <span class="date" :text="$loop.it.date.format('January 02, 2006')"></span>
-      <a class="title" href="$loop.it.link()">
-        <h3 :text="$loop.it.title"></h3>
-      </a>
-    </div>
+    <ctx :loop="$page.subpages()">
+      <div :if="$loop.it.custom.has('unlisted').not()">
+        <span class="date" :text="$loop.it.date.format('January 02, 2006')"></span>
+        <a class="title" href="$loop.it.link()">
+          <h3 :text="$loop.it.title"></h3>
+        </a>
+      </div>
+    </ctx>
   </div>
 </body>
