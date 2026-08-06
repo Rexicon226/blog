@@ -18,12 +18,33 @@
       display:flex;
       flex-direction: column;
     }
+
+    .footnotes li {
+      margin-bottom: 0.75rem;
+    }
+
+    .footnotes li > p {
+      display: inline;
+    }
+
+    .footnotes li > a {
+      margin-left: 0.35rem;
+    }
   </style>
 </head>
 <body id="body">
   <div id="content">
     <h1 :text="$page.title"></h1>
     <div class="post" :html="$page.content()"></div>
+    <ctx :if="$page.footnotes?()">
+      <section class="footnotes" aria-label="References">
+        <ol :loop="$if">
+          <li id="$loop.it.def_id">
+            <ctx :html="$loop.it.html()"></ctx>
+          </li>
+        </ol>
+      </section>
+    </ctx>
     <div id="prev-next">
       <div :if="$page.prevPage?()">
         <a href="$if.link()">

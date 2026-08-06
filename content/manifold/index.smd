@@ -1,0 +1,523 @@
+---
+.title = "Understanding Manifold-Constrained Hyper-Connections",
+.date = @date("2026-08-05T00:00:00"),
+.author = "David Rubin",
+.layout = "post.shtml",
+.draft = false,
+---
+
+
+TODO: intro
+
+## [Vectors, functions, and stacking]($section.id("vectors"))
+
+A **vector** is just an ordered list of numbers, for example,
+[`x = (88, 91, 76)`](/$) is a vector in [`\mathbf{R}^3`](/$).
+
+A **matrix** is a rectangular grid of numbers. One of the more useful
+properties of a matrix is that it *transforms* a vector into another
+vector. Multiplying a vector by a matrix produces a new vector, typically
+of a different length, whose entries are weighted sums of the original
+entries.
+
+A **function** [`f`](/$) takes an input and produces an output, [`y = f(x)`](/$).
+
+Neural networks are built by chaining functions together; the output of one
+becomes the input of the next. If you have three functions [`f_1, f_2, f_3`](/$),
+chaining them means computing
+
+```=mathtex
+x_3 = f_3(f_2(f_1(x_0)))
+```
+
+We call this **function composition**, and every neural network, no matter
+how exotic, is fundamentally a long composition like this. Each [`f_i`](/$) is
+called a **layer**. Modern language models chain together anywhere from a
+few dozen to a few hundred layers. The input [`x_0`](/$) starts as a
+representation of some text; each layer nudges that representation a little,
+and the final layer's output is used to make a prediction (such as
+"what word comes next").
+
+Each [`f_i`](/$) function has some internal numbers (weights, written as
+[`W_i`](/$)) that are adjusted during training so the whole composition
+produces better results.
+
+These weights are adjusted via the **derivative** of the output with respect
+to each weight, and computing that derivative for an early layer requires
+the **chain rule**, differentiating a composition of functions.
+
+> **Chain rule**
+>
+> If [`y = f_3(f_2(f_1(x)))`](/$), then 
+[`\dfrac{dy}{dx} = f_3'(\cdot) \cdot f_2'(\cdot) \cdot f_1'(\cdot)`](/$).
+> The derivative of a composition is the *product* of the individual derivatives.
+
+
+## [Why depth is hard]($section.id("why_depth_is_hard"))
+
+Suppose you stack [`L`](/$) layers instead of 3. Training uses a procedure
+called **backpropagation**, which is really just the chain rule applied over
+and over, from the last layer back to the first. To figure out how much the
+very first layer's weights should change, you need the derivative of the
+final output with respect to the first layer's input.
+
+By the chain rule, that derivative is a product of [`L`](/$) terms, one per
+layer:
+
+```=mathtex
+\frac{dx_L}{dx_0} = f_L' \cdot f_{L-1}' \cdot \, \cdots \, \cdot f_1' = \prod_{i=1}^{L} f_i'
+```
+
+Suppose each individual derivative [`f_i`](/$) happens to be, on average,
+a bit less than 1; for our example, we'll say [`0.9`](/$). What happens
+to the product as [`L`](/$) grows?
+
+```=mathtex
+0.9^{10} \approx 0.35 \qquad 0.9^{60} \approx 0.0018 \qquad 0.9^{200} \approx 7 \times 10^{-10}
+```
+
+By 200 layers, the gradient reaching the first layer is ten orders of magnitude
+smaller than the gradient at the last layer. In the real world, we deal with
+finite precision floating-point arithmetic, and this is indistinguishable
+from zero. The first layer effectively stops learning, as its weight updates
+are microscopic no matter how wrong its output is. 
+
+This is the famous [**vanishing gradient problem**](
+https://en.wikipedia.org/wiki/Vanishing_gradient_problem).
+
+The same failure happens in the other direction, when the average derivative
+is a bit larger than 1, causing the product to blow up instead; 
+the **exploding gradient** problem. Either way, depth alone destabilizes
+training, purely as a consequence of multiplying many numbers together.
+
+In a real network, this collapse happens not for a scalar, but for a vector,
+so the derivative of each [`f_i`](/$) is really a **Jacobian matrix** (a grid of partial
+derivatives) rather than a single number. In that context "small" means
+something like "shrinks vectors on average", or formally, its **spectral
+norm** (the largest factor by which the matrix can stretch a vector) is
+less than 1.
+
+But the end result looks the same: composing many maps that each shrink
+(or grow) space by roughly the same factor shrinks (or grows) it exponentially
+in depth.
+
+## [Residual Connections]($section.id("residual_connections"))
+
+In 2015, Kaiming He and coauthors at Microsoft Research 
+[proposed](https://arxiv.org/abs/1512.03385) **residual connections**. Instead of
+a layer replacing its input, it adds a correction to it.
+
+```=mathtex
+x_{l+1} = x_l + F(x_l, W_l)
+```
+
+Compare this to the plain version, [`x_{l+1} = F(x_l, W_l)`](/$). The difference
+may look small, just one extra addition, but it has a big impact. [`F`](/$)
+is now called the **residual function**; it doesn't have to reconstruct the
+entire next representation from scratch, it only has to compute a *correction*
+to add on top of what's already there.
+
+If the best thing a layer can do is nothing at all, it can learn to make [`F`](/$)
+output approximately zero, and the identity simply passes through.
+
+When we unroll this recurrence across several layers, something clean happens.
+Starting from layer [`l`](/$) and applying the rule repeatedly up to layer 
+[`L`](/$):
+
+```=mathtex
+x_L = x_l + \sum_{i=l}^{L-1} F(x_i, W_i)
+```
+
+We get a [**telescoping sum**](https://en.wikipedia.org/wiki/Telescoping_series).
+The deeper representation [`x_L`](/$) is just the shallow representation 
+[`x_l`](/$) plus a running total of corrections. Importantly, [`x_l`](/$) appears
+*undiminished*; it isn't multiplied by anything. Differentiate this expression
+and the chain-rule product from the previous section gets an extra additive
+term at every layer:
+
+```=mathtex
+\frac{dx_{l+1}}{dx_l} = I + \frac{\partial F}{\partial x_l}
+```
+
+where [`I`](/$) is the identity map. Composing many of these no longer
+multiplies [`L`](/$) numbers that are each a bit less than one; it multiplies
+[`L`](/$) terms that are each *close to one*, because they're "1 plus something,"
+and that something is typically kept small by how the layer is initialized 
+and normalized. The gradient signal has, in 
+[He et al.'s words](https://arxiv.org/abs/1603.05027), an unimpeded shortcut
+through which information can flow from the last layer to the first layer
+through pure addition.
+
+## [Hyper-connections]($section.id("hyper_connections"))
+
+In 2024, a team at ByteDance's Seed Foundation Model group asked an
+interesting question. If one identity shortcut is so great, is having
+several of them better?
+
+The residual connection carries exactly one "lane" of information forward,
+[`x_l`](/$), a single vector of dimension [`C`](/$). Zhu et al.'s
+**Hyper-Connections** (HC) widen that single lane into [`n`](/$) parallel
+lanes, an *n*-stream residual, and replace the fixed "add" and "read"
+operations with learnable matrices that control how information moves
+between the lanes and the layer.
+
+Concretely, instead of a vector [`x_l \in \mathbf{R}^{1\times C}`](/$),
+HC carries a small matrix [`\mathbf{x}_l \in \mathbf{R}^{n\times C}`](/$);
+literally [`n`](/$) stacked copies of the residual stream, each of width
+[`C`](/$). Three learnable maps govern what happens at each layer:
+
+- [`H^{pre}_l \in \mathbf{R}^{1\times n}`](/$), a read map. It takes a
+weighted combination of the [`n`](/$) lanes and collapses them into the
+single [`C`](/$)-dimensional vector that the layer function actually
+operates on.
+- [`H^{post}_l \in \mathbf{R}^{1\times n}`](/$), a write map. It takes
+the layer's single output vector and scatters it back out across the [`n`](/$)
+lanes.
+- [`H^{res}_l \in \mathbf{R}^{n\times n}`](/$), a mixing map. It lets the 
+[`n`](/$) lanes exchange information directly with one another, without
+passing through the layer function.
+
+Put together, one layer of Hyper-Connections computes:
+
+```=mathtex
+\mathbf{x}_{l+1} \;=\; \underbrace{H^{res}_l\, \mathbf{x}_l}_{\text{lanes mix with each other}} \;+\; \underbrace{{H^{post}_l}^{\!\top} F(H^{pre}_l\, \mathbf{x}_l,\, W_l)}_{\text{layer reads, computes, writes back}}
+```
+
+What does this buy you? There are two aspects that the HC paper emphasizes.
+
+First, [`H^{res}_l`](/$) can learn to weight some lanes more heavily than
+others depending on what's useful at that depth. The network can dynamically
+adjust how strongly information from different points in the stack influences
+the other lanes, rather than relying on the fixed behavior of a plain residual connection.
+
+Second, because [`H^{res}_l`](/$) is not required to be close to the identity,
+it can act like a soft *permutation*, effectively letting the network rearrange
+which lane's information dominates at which depth.
+
+We can describe the [residual connection](#residual_connections) as a 
+Hyper-Connection with [`n=1`](/$), as [`H^{res}_l`](/$) collapses to the
+scalar [`1`](/$) and the rest of the equation reduces to
+[`x_{l+1} = x_l + F(x_l, W_l)`](/$).
+
+## [An Unconstrained Matrix]($section.id("unconstrained_matrix"))
+
+Recall the telescoping sum for plain residual connections, unrolled across
+depth, [`x_l`](/$) passes through untouched, multiplied by nothing. Now do
+the same unrolling for Hyper-Connections.
+
+Because the "skip" term is now [`H^{res}_l\,\mathbf{x}_l`](/$) rather than
+[`\mathbf{x}_l`](/$) itself, propagating a signal from a shallow layer [`l`](/$)
+to a deeper layer [`L`](/$) multiplies it by a whole chain of matrices.
+
+```=mathtex
+\mathbf{x}_L \;=\; \left(\prod_{i=1}^{L-l} H^{res}_{L-i}\right)\mathbf{x}_l \;+\; (\text{correction terms from each layer's } F)
+```
+
+That leading product, [`\prod_{i=1}^{L-l} H^{res}_{L-i}`](/$), is exactly the
+same kind of object that caused the vanishing/exploding gradient problem before.
+A long chain of matrix multiplications, except now it's sitting where the previously
+well-behaved identity matrix used to be.
+
+[`H^{res}_l`](/$) is *unconstrained*; it's just whatever a neural network happens
+to learn with no guarantee that multiplying sixty of them in a row does anything
+reasonable to a vector's scale.
+
+When the DeepSeek team trained large (27-billion-parameter) models with
+Hyper-Connections, they measured how much a composite chain of [`H^{res}`](/$)
+matrices could amplify a signal. They call the largest row sum of the accumulated
+product the *Amax Gain Magnitude*. For a single layer, this stayed close to a
+sensible range. Accumulated across greater depths, it reached peaks in the
+thousands.
+
+A signal—or, running backward, a gradient—passing through the residual stream
+could be amplified a thousand-fold purely by the residual path, before the
+layer functions [`F`](/$) even entered the computation. In their training runs
+this showed up as a big loss spike partway through training, correlated with
+a burst in gradient norm.
+
+Furthermore, there's another, more mundane problem. Widening the residual stream
+from one lane to [`n`](/$) lanes means every read and write to that stream costs
+roughly [`n`](/$) times as much memory traffic. On modern accelerators, moving
+data is often more expensive than computing it.
+
+The [paper published by the DeepSeek team](https://arxiv.org/abs/2512.24880)
+solved both of these issues, and in a surprisingly simple way.
+
+## [A crash course on manifolds]($section.id("manifolds"))
+
+The word "manifold" sounds intimidating mostly because of how it's usually
+introduced. The idea itself is simple: it is a shape that looks flat if you're
+standing close enough to it, even if it's curved overall.
+
+A classic example is the Earth. Stand in a field and the ground looks flat,
+ordinary two-dimensional flat space, the kind you learned coordinate geometry on.
+Zoom out to the scale of continents and it's obviously a curved sphere.
+
+A **manifold** is exactly this idea made more precise; a space that *locally*
+resembles ordinary flat (Euclidean) space around every point, even though its
+*global* shape can be curved, closed, or otherwise exotic.[^1] 
+
+A circle is a one-dimensional manifold; zoom in anywhere on it and it looks like
+a straight line segment. A sphere's surface is a two-dimensional manifold. A
+figure-eight is *not* a manifold, because at the crossing point, no amount of
+zooming in makes it look like a simple flat line; two strands cross there, and
+no local view is just "flat".
+
+Why do we care about this? Consider a recurring pattern we've seen in neural-network
+optimization up till now. We often want to adjust a quantity, such as
+a vector or matrix, while requiring it to always satisfy some structural
+property. A unit vector must always have length 1. A rotation matrix must always
+preserve distances and orientation. A probability distribution's entries must
+always be non-negative and sum to 1. 
+
+In every one of these cases, the "legal" values don't form all of
+[`\mathbf{R}^n`](/$). They form a curved, lower-dimensional subset sitting
+inside it. If that subset is well-behaved (locally flat, in the manifold sense),
+there's an elegant recipe for optimizing over it. We take an ordinary step in the
+surrounding flat space, not considering the real shape because we're zoomed in
+so far, then **project** back onto the subset, like "snapping" back onto the
+allowed shape.
+
+This is the core of an entire field called **Riemannian optimization**, or
+[**manifold optimization**](https://www.nicolasboumal.net/book/IntroOptimManifolds_Boumal_2023.pdf).
+
+> **A little insert for those who care**
+>
+> The set of doubly-stochastic matrices we're about to meet, the actual "manifold"
+in Manifold-Constrained Hyper-Connections, is technically a **polytope**, a
+convex shape with flat faces and sharp corners and edges, defined by a finite
+list of linear equalities and inequalities. It is *not* a manifold in the strict
+textbook sense of the word at its corners and edges, because near a corner the
+shape doesn't look locally flat in every direction, it looks like a wedge. Only
+the interior is a smooth manifold. In practice, the machine-learning community
+uses "manifold" a good deal more loosely than differential geometers do, meaning
+*a constrained, structured space you can define a sensible projection onto*,
+whether or not every point of it is technically a smooth-manifold point.
+
+## [Doubly-stochastic matrices and the Birkhoff polytope]($section.id("birkhoff_polytope"))
+
+A square matrix [`H \in \mathbf{R}^{n\times n}`](/$) is called **doubly stochastic** if it satisfies three conditions:
+
+```=mathtex
+H \geq 0 \qquad H\mathbf{1}_n = \mathbf{1}_n \qquad \mathbf{1}_n^\top H = \mathbf{1}_n^\top
+```
+
+In English, every entry is non-negative, every row sums to 1, and every column
+sums to 1 ([`\mathbf{1}_n`](/$) is just the all-ones vector; multiplying by it computes a sum).
+If you drop the column condition and keep only "non-negative, rows sum to 1,"
+you get an ordinary **stochastic matrix**, also known as the transition matrix of a Markov
+chain, or a matrix whose rows are each a probability distribution. Demanding *both*
+rows and columns sum to 1 is a much stronger and more symmetric condition.
+
+The simplest doubly-stochastic matrices are **permutation matrices**, square
+0/1 matrices with exactly 1 in every row and every column; everything else is 0.
+A permutation matrix doesn't blend anything, it just reorders coordinates.
+For [`n=3`](/$) there are exactly [`3! = 6`](/$) of them, one for each way of
+shuffling three items:
+
+![](fig07-permutation-matrices.svg)
+
+Permutation matrices are the extreme, "pure" cases. But they're not the *only*
+doubly-stochastic matrices; you can also average them together. If 
+[`P_1, \dots, P_6`](/$) are the six permutation matrices above and
+[`\lambda_1, \dots, \lambda_6`](/$) are non-negative weights summing to 1,
+then [`\sum_i \lambda_i P_i`](/$) is also doubly-stochastic.
+
+A remarkable theorem, proven by Garrett Birkhoff in 1946, though equivalent
+statements go back to Kőnig and Steinitz decades earlier[^2], says the converse
+is also true.
+
+> **Birkhoff-von Neumann theorem**
+>
+> *Every* [`n\times n`](/$) doubly-stochastic matrix can be written as a
+convex combination (a weighted average with non-negative weights summing to 1)
+of [`n\times n`](/$) permutation matrices. Equivalently, the set of all
+doubly-stochastic matrices is *exactly* the convex hull of the permutation
+matrices; no more, no less.
+
+There are two properties of this polytope that become useful to the use case
+described in this piece.
+
+#### A doubly-stochastic matrix cannot stretch a vector
+
+The **spectral norm** [`\|H\|_2`](/$) of a matrix measures the largest factor by
+which it can stretch any vector's length; [`\|Hv\| \leq \|H\|_2\,\|v\|`](/$)
+for every [`v`](/$). A permutation matrix simply reorders a vector's entries,
+which cannot change its length at all; so [`\|P\|_2 = 1`](/$) exactly, for any
+permutation matrix [`P`](/$). 
+
+Now take a doubly-stochastic [`H = \sum_i \lambda_i P_i`](/$). The spectral norm
+is itself a norm on the space of matrices, so it obeys the triangle inequality:
+```=mathtex
+\|H\|_2 = \|\sum_i \lambda_i P_i\|_2 \;\leq\; \sum_i \lambda_i \|P_i\|_2 \;=\; \sum_i \lambda_i \cdot 1 \;=\; 1
+```
+
+So **every doubly-stochastic matrix has spectral norm at most 1**. It can shrink
+or preserve a vector's length, but it can never amplify it. If we could somehow
+apply this idea to the residual stream we discussed before, it would stop our
+signal from exploding.
+
+#### The product of two doubly-stochastic matrices is doubly-stochastic
+
+Take [`A,B`](/$) both doubly-stochastic. Their product [`AB`](/$) is entrywise
+non-negative, since it's built from sums of products of non-negative numbers.
+
+For the row sums, [`(AB)\mathbf{1}_n = A(B\mathbf{1}_n) = A\mathbf{1}_n = \mathbf{1}_n`](/$).
+
+For the column sums, by the same argument on the transpose,
+[`\mathbf{1}_n^\top(AB) = (\mathbf{1}_n^\top A)B = \mathbf{1}_n^\top B = \mathbf{1}_n^\top`](/$).
+
+So [`AB`](/$) is again doubly-stochastic. We call this **closure under multiplication**.
+
+Put these two facts together and you get exactly the guarantee we were missing
+before. If every [`H^{res}_l`](/$) is doubly-stochastic, then by the second
+property, any product of them, [`\prod_i H^{res}_{L-i}`](/$), is *also*
+doubly-stochastic, no matter how deep the network is!
+
+And by the first property, that product has spectral norm at most 1, at *every*
+depth, not just on average. The composite mapping can never amplify a signal,
+regardless of how many layers you compose. We have basically restored the
+identity mapping property we had before, not that [`H^{res}_l`](/$) equals the
+identity matrix exactly (that would prevent the streams from mixing), but that it's
+drawn from a family of matrices that is provably non-expansive under many repeated
+compositions.
+
+## [Projecting onto the polytope]($section.id("sinkhorn_knopp"))
+
+Knowing the target shape we want is only half the problem! We also need a cheap,
+differentiable way to push an arbitrary matrix, whatever a neural network happens
+to output, onto it, at every layer, on every forward pass, for every token.
+
+Funny enough, the algorithm ends up being embarrassingly simple, and it predates
+deep learning by decades, with versions of it appearing in the 1940s survey
+statistics under the name "iterative proportional fitting". It was analyzed
+rigorously for matrices by Richard Sinkhorn in 1964 and jointly with Paul Knopp
+in 1967.[^3]
+
+Start with any matrix that has only positive entries. Then repeat two steps:
+
+1. Divide every row by its own sum, so all rows sum to exactly 1.
+2. Divide every column by its own sum, so all columns sum to exactly 1.
+
+The catch, obviously, is that step 2 can undo step 1's row sums a little bit;
+dividing a column by its sum changes every entry in that column, including the
+row totals we just fixed.
+
+But there's a nice way around this. Each round of doing both steps damages the
+previous step's work by a shrinking amount. Sinkhorn and Knopp proved that for
+any square matrix with strictly positive entries, this alternation converges,
+and does so *linearly*, meaning the error shrinks by roughly a constant factor
+every round. 
+
+The result of the convergence is a doubly-stochastic matrix. A handful of
+iterations is normally enough to get within floating-point precision of the
+exact answer.[^4]
+
+For us to apply this idea inside a neural network layer, two adaptations are
+needed. First, the network doesn't naturally produce positive numbers;
+its raw output for [`H^{res}_l`](/$) can be any real number. So the first step
+is to exponentiate every entry, guaranteeing positivity while keeping the whole
+operation smooth and differentiable.
+
+Second, since the algorithm only reaches the exact answer in the limit, a practical
+implementation fixes a finite iteration count. The DeepSeek team settled on
+[`t_{\max}=20`](/$), enough to be indistinguishable from exact in ordinary
+floating-point precision. Concretely, writing [`\tilde{H}^{res}_l`](/$) for
+the network's raw, unconstrained output at layer [`l`](/$):
+
+```=mathtex
+M^{(0)} = \exp\!(\tilde{H}^{res}_l), \qquad M^{(t)} = T_r\!(T_c(M^{(t-1)})), \qquad H^{res}_l = M^{(t_{\max})}
+```
+
+where [`T_r`](/$) and [`T_c`](/$) denote row- and column-normalization, respectively.
+The output [`H^{res}_l`](/$) is, to numerical precision, a doubly-stochastic matrix,
+a point inside the Birkhoff polytope.
+
+> **Another insert for those who care**
+>
+> If this iteration looks familiar from a different corner of machine learning,
+that's because it is. The same alternating-normalization idea became a commonly
+used tool in computational optimal transport after Marco Cuturi's 2013 paper
+*Sinkhorn Distances* showed that adding an entropy penalty to the classic
+transportation problem turns its solution into exactly this kind of iterative
+matrix scaling.[^5]
+
+## [Manifold-Constrained Hyper-Connections]($section.id("assembly"))
+
+Finally, we can discuss Manifold-Constrained Hyper-Connections (mHC). mHC
+is what you get when you take Hyper-Connections and force [`H^{res}_l`](/$)
+to always live on the Birkhoff polytope.
+
+Formally, define the projection of the residual-mixing map onto the manifold of
+doubly-stochastic matrices:
+
+```=mathtex
+\mathrm{Proj}_{\mathbf{M}^{res}}\!(H^{res}_l) \;:=\; \{\, H^{res}_l \in \mathbf{R}^{n\times n} \;|\; H^{res}_l \mathbf{1}_n = \mathbf{1}_n,\;\; \mathbf{1}_n^\top H^{res}_l = \mathbf{1}_n^\top,\;\; H^{res}_l \geq 0 \,\}
+```
+
+Substituting this constrained matrix into the Hyper-Connections layer equation
+gives the full mHC:
+
+```=mathtex
+\mathbf{x}_{l+1} \;=\; \mathrm{Proj}_{\mathbf{M}^{res}}\!(H^{res}_l)\,\mathbf{x}_l \;+\; {H^{post}_l}^{\!\top} F(H^{pre}_l\,\mathbf{x}_l,\, W_l)
+```
+
+
+One more small piece, [`H^{pre}_l`](/$) and [`H^{post}_l`](/$), the read and write
+maps, are also constrained, though more gently. Rather than forcing them onto
+a polytope, the paper simply forces every entry to be non-negative, using a
+sigmoid function ([`\sigma`](/$)). This clamps the entries of [`H^{pre}_l`](/$)
+into the range [`(0,1)`](/$) and those of [`H^{post}_l`](/$) into [`(0,2)`](/$).
+
+```=mathtex
+H^{pre}_l = \sigma\!(\widetilde{H}^{pre}_l) \qquad H^{post}_l = 2\,\sigma\!(\widetilde{H}^{post}_l)
+```
+
+The reasoning behind this choice is similar. If [`H^{pre}_l`](/$) were allowed
+both positive and negative entries, the network could, in principle, learn a read
+map that looks large in magnitude, suggesting an active and expressive mixing, while
+its positive and negative parts nearly cancel out, contributing almost nothing
+and hiding that fact from any weight-magnitude diagnostic.
+
+Forcing non-negativity closes off that particular failure mode, as every lane's
+contribution adds, rather than potentially fighting against another lane.
+It's a milder constraint than the full doubly-stochastic one,
+[`H^{pre}_l`](/$) and [`H^{post}_l`](/$) aren't required to sum to any particular
+total, but I think it's philosophically the same idea.
+
+The raw, pre-projection values themselves,
+[`\widetilde{H}^{pre}_l`](/$), [`\widetilde{H}^{post}_l`](/$), [`\widetilde{H}^{res}_l`](/$),
+are computed from the current hidden state in two parts, a *static* component
+(a learned bias, same for every token) plus a *dynamic* component (a small
+linear readout of the current, normalized hidden state, scaled by a learnable
+gate):
+
+```=mathtex
+\vec{\mathbf{x}}_l' = \mathrm{RMSNorm}(\vec{\mathbf{x}}_l), \qquad \widetilde{H}^{res}_l = \alpha^{res}_l \cdot \mathrm{mat}(\vec{\mathbf{x}}_l' \varphi^{res}_l) + b^{res}_l
+```
+
+Nothing there is new; [RMSNorm](https://arxiv.org/abs/1910.07467) is a well-known
+normalization method.
+
+## [Results]($section.id("results"))
+
+TODO
+
+## [The bigger picture]($section.id("bigger_picture"))
+
+
+TODO, want to discuss history of micro vs. macro design, moe, mudd, etc.
+
+---
+
+## [References]($section.id("references"))
+
+[^1]: https://en.wikipedia.org/wiki/Manifold
+
+[^2]: https://en.wikipedia.org/wiki/Birkhoff_polytope
+
+[^3]: https://en.wikipedia.org/wiki/Sinkhorn's_theorem
+
+[^4]: https://www.cerfacs.fr/algor/reports/2006/TR_PA_06_42.pdf
+
+[^5]: https://arxiv.org/abs/1306.0895
