@@ -10,8 +10,6 @@
 ---
 
 
-TODO: intro
-
 ## [Vectors, functions, and stacking]($section.id("vectors"))
 
 A **vector** is just an ordered list of numbers, for example,
@@ -440,8 +438,9 @@ a point inside the Birkhoff polytope.
 >
 > If this iteration looks familiar from a different corner of machine learning,
 that's because it is. The same alternating-normalization idea became a commonly
-used tool in computational optimal transport after Marco Cuturi's 2013 paper
-*Sinkhorn Distances* showed that adding an entropy penalty to the classic
+used tool in computational optimal transport after 
+Marco Cuturi's [2013 paper *Sinkhorn Distances*](https://marcocuturi.net/Papers/cuturi13sinkhorn.pdf)
+showed that adding an entropy penalty to the classic
 transportation problem turns its solution into exactly this kind of iterative
 matrix scaling.[^5]
 
@@ -502,14 +501,65 @@ gate):
 Nothing there is new; [RMSNorm](https://arxiv.org/abs/1910.07467) is a well-known
 normalization method.
 
-## [Results]($section.id("results"))
-
-TODO
-
 ## [The bigger picture]($section.id("bigger_picture"))
 
+Researchers often distinguish *micro-designs* (what a single block computes,
+attention, convolutions, feed-forward) from *macro-design* (the topology
+connecting blocks together). The last decade of micro-design progress is
+more well-known, with advancements such as attention, Mixture-of-Experts
+routing, and so on.
 
-TODO, want to discuss history of micro vs. macro design, moe, mudd, etc.
+Macro-design has its own, less well-known, history. After the original
+residual connection, DenseNet connected every layer directly to every
+later layer;[^6] FractalNet built networks out of self-similar branching
+sub-structures instead of a single chain;[^7] Highway Networks, which
+slightly predate ResNet, used a learned gate to blend a layer's
+output with its input;[^8] Deep Layer Aggregation proposed recursively
+merging features across both depth and resolution.[^9] More recently,
+DenseFormer re-weighted contributions from *all* previous layers at every
+step,[^10] MUDDFormer built dynamic, content-dependent dense connections
+across a transformer stack,[^11] and Residual Matrix Transformers replaced
+the residual vector entirely with an outer-product memory matrix.[^12]
+
+All of these approachs have some trade-off between, more connectivity
+buys more expressiveness, but identity-mapping allows deep training to
+be tractable. The mHC paper gives us a way to describe the stability of
+very deep networks as a *geometric* property of the space a matrix is
+allowed to live in. 
+
+The solution described by mHC can be generalized to settings well beyond
+the transformer blocks the original paper tested. Within a few months of
+the paper releasing, researchers had already adapted the same
+doubly-stochastic constraint to graph neural networks, where it slows
+the over-smoothing problem from decaying exponentially in depth to decaying
+exponentially in depth divided by the stream width.[^13]
+The approach has also been applied to state-space sequence models in the
+Mabma family.[^14] 
+
+Another line of follow-up work asks whether the Sinkhorn-Knopp approximation,
+which only reaches the exact polytope in the limit of infinitely many iterations,
+can be replaced with something more exact. One proposal restricts [`H^{res}_l`](/$)
+to literal convex combinations of a small set of permutation matrices. This
+guarantees exactness at the cost of a combinatorial blow-up in how many
+permutations you need to track. A follow-up called TBP-mHC instead generalizes
+to a broader family called **transporation polytopes** to recover more
+expressive power, while a concurrent approach nicknamed KromHC uses
+Kronecker-product structure to keep the parameter count down by restricting
+to a smaller, structured slice of the Brikhoff polytope.[^15]
+
+The apper's own conclusion gestures at where this plausibly goes next:
+doubly-stochastic matrices are just one choice of manifold, chosen because
+it maps cleanly onto "conservation of signal energy." Other constrained sets
+encode other properties a network designer might want; matrices that preserve
+angles as well as lengths (orthogonal matrices, forming what's called the
+**Stiefel manifold**), or matrices with a fixed, bounded rank. All of these
+are already-studied objects in the Riemannian-optimization literature we
+discussed before, and none of them are specific to language models.
+
+If mHC's core idea holds up, the question that will be the most interesting
+in the long-run won't really be about hyper-connections, but about which
+other pieces of a deep network's plumbing turns out to be, in disguise,
+constrained-optimization problems.
 
 ---
 
@@ -524,3 +574,23 @@ TODO, want to discuss history of micro vs. macro design, moe, mudd, etc.
 [^4]: https://www.cerfacs.fr/algor/reports/2006/TR_PA_06_42.pdf
 
 [^5]: https://arxiv.org/abs/1306.0895
+
+[^6]: https://arxiv.org/abs/1608.06993
+
+[^7]: https://arxiv.org/abs/1605.07648
+
+[^8]: https://arxiv.org/abs/1507.06228
+
+[^9]: https://arxiv.org/abs/1707.06484
+
+[^10]: https://arxiv.org/abs/2402.02622
+
+[^11]: https://arxiv.org/abs/2502.12170
+
+[^12]: https://arxiv.org/abs/2506.22696
+
+[^13]: https://arxiv.org/abs/2601.02451
+
+[^14]: https://arxiv.org/abs/2605.08300
+
+[^15]: https://arxiv.org/abs/2605.21724
